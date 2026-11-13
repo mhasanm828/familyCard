@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, UserPlus } from "lucide-react";
-import { signUp, authErrorMessage } from "@/lib/auth-client";
+import { signUp, useSession, authErrorMessage } from "@/lib/auth-client";
 import SocialLoginButtons from "@/components/SocialLoginButtons";
 
 export default function SignUpPage() {
@@ -15,6 +15,12 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Already logged in? Don't show the form — route by role.
+  const { data: session } = useSession();
+  useEffect(() => {
+    if (session) router.replace("/auth/callback");
+  }, [session, router]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -24,11 +30,12 @@ export default function SignUpPage() {
     }
     setLoading(true);
     try {
+      // No callbackURL here — see signin/page.tsx. The single landing
+      // page /auth/callback routes by role after signup too.
       const { error } = await signUp.email({
         email,
         password,
         name,
-        callbackURL: "/search",
       });
       if (error) {
         setError(
@@ -36,8 +43,7 @@ export default function SignUpPage() {
         );
         return;
       }
-      router.push("/search");
-      router.refresh();
+      router.push("/auth/callback");
     } catch {
       // Network failure (e.g. the server is down or unreachable) used
       // to reject the promise uncaught — "Uncaught TypeError: Failed

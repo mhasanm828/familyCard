@@ -82,9 +82,12 @@ export default function SocialLoginButtons() {
       return;
     }
     setLoading(provider);
+    // Land on /auth/callback after OAuth returns — it routes by role
+    // (admin → /admin, approved → /profile, pending → /pending),
+    // the same as the email flow.
     const { error } = await signIn.social({
       provider,
-      callbackURL: "/search",
+      callbackURL: "/auth/callback",
     });
     setLoading(null);
     if (error) {

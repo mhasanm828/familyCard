@@ -28,7 +28,14 @@ let client: MongoClient | null = null;
 
 export function getClient(): MongoClient {
   if (!client) {
-    client = new MongoClient(process.env.DATABASE_URL ?? FALLBACK_URI);
+    // Fail fast when the database is unreachable: the driver's
+    // default 30 s server-selection timeout made every guarded page
+    // hang blank for half a minute before erroring. 5 s is enough
+    // for a healthy Atlas/local connection and turns a dead database
+    // into a quick redirect to /signin instead of a blank page.
+    client = new MongoClient(process.env.DATABASE_URL ?? FALLBACK_URI, {
+      serverSelectionTimeoutMS: 5000,
+    });
   }
   return client;
 }

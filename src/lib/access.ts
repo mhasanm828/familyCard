@@ -87,9 +87,19 @@ export interface SessionAccess {
   access: Access;
 }
 
-/** Session + fresh access, or null when not logged in. */
+/** Session + fresh access, or null when not logged in.
+ * Never throws: if the session lookup fails (e.g. the database is
+ * unreachable), the guards treat it as "not logged in" and redirect
+ * to /signin instead of letting the page crash into a blank 500 —
+ * that blank page is exactly what users saw after login when the
+ * database hiccuped. */
 export async function getSessionWithAccess(): Promise<SessionAccess | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  let session: Session | null = null;
+  try {
+    session = await auth.api.getSession({ headers: await headers() });
+  } catch {
+    return null;
+  }
   if (!session) return null;
   const { user, access } = await getUserAccess(session.user.id);
   return { session, user, access };

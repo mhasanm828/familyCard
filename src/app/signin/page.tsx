@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, LogIn } from "lucide-react";
-import { signIn, authErrorMessage } from "@/lib/auth-client";
+import { signIn, useSession, authErrorMessage } from "@/lib/auth-client";
 import SocialLoginButtons from "@/components/SocialLoginButtons";
 
 export default function SignInPage() {
@@ -14,15 +14,26 @@ export default function SignInPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Already logged in (e.g. came back to /signin)? Don't show the
+  // form — send the account where it belongs (admin → /admin).
+  const { data: session } = useSession();
+  useEffect(() => {
+    if (session) router.replace("/auth/callback");
+  }, [session, router]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
+      // No callbackURL here on purpose: Better Auth would do a full
+      // window.location navigation itself AND this code would also
+      // router.push — the race left users on a blank page. Instead
+      // the single landing page /auth/callback routes by role
+      // (admin → /admin, approved → /profile, pending → /pending).
       const { error } = await signIn.email({
         email,
         password,
-        callbackURL: "/search",
       });
       if (error) {
         setError(
@@ -30,8 +41,7 @@ export default function SignInPage() {
         );
         return;
       }
-      router.push("/search");
-      router.refresh();
+      router.push("/auth/callback");
     } catch {
       // Network failure (e.g. the server is down or unreachable) used
       // to reject the promise uncaught — "Uncaught TypeError: Failed
