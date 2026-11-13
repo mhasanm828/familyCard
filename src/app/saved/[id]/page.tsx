@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireSession } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { COLLECTIONS, getDb, ObjectId } from "@/lib/db";
 import ResultView from "@/components/ResultView";
 import type { ApplicantData } from "@/lib/familycard";
 
@@ -18,9 +18,10 @@ export default async function SavedDetailPage({
   const session = await requireSession();
   const { id } = await params;
 
-  const row = await prisma.savedApplication.findFirst({
-    where: { id, userId: session.user.id },
-  });
+  if (!ObjectId.isValid(id)) notFound();
+  const row = await getDb()
+    .collection(COLLECTIONS.savedApplications)
+    .findOne({ _id: new ObjectId(id), userId: session.user.id });
   if (!row) notFound();
 
   let data: ApplicantData;
@@ -34,7 +35,7 @@ export default async function SavedDetailPage({
     <div className="space-y-5 pt-6">
       <Link
         href="/saved"
-        className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-700 hover:underline"
+        className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-700 hover:underline dark:text-emerald-400"
       >
         <ArrowLeft className="h-4 w-4" />
         সেভ করা তালিকায় ফিরুন

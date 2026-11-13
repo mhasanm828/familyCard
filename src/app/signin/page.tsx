@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, LogIn } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
+import SocialLoginButtons from "@/components/SocialLoginButtons";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -33,17 +34,25 @@ export default function SignInPage() {
 
   return (
     <div className="mx-auto max-w-md pt-10">
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200 sm:p-8">
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-stone-800">
-          <LogIn className="h-6 w-6 text-brand-700" />
+      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200 sm:p-8 dark:bg-stone-900 dark:ring-stone-800">
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-stone-800 dark:text-stone-100">
+          <LogIn className="h-6 w-6 text-brand-700 dark:text-emerald-400" />
           লগইন করুন
         </h1>
-        <p className="mt-1 text-sm text-stone-500">
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
           সার্চ করতে আর সেভ করা আবেদন দেখতে লগইন লাগবে।
         </p>
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div className="mt-6">
+          <SocialLoginButtons />
+        </div>
+        <div className="my-6 flex items-center gap-3">
+          <span className="h-px flex-1 bg-stone-200 dark:bg-stone-700" />
+          <span className="text-xs font-bold text-stone-400 dark:text-stone-500">অথবা ইমেইল দিয়ে</span>
+          <span className="h-px flex-1 bg-stone-200 dark:bg-stone-700" />
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-stone-700">
+            <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-stone-700 dark:text-stone-300">
               ইমেইল
             </label>
             <input
@@ -53,11 +62,11 @@ export default function SignInPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="আপনার ইমেইল"
-              className="w-full rounded-xl border border-stone-300 px-4 py-3 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
+              className="w-full rounded-xl border border-stone-300 px-4 py-3 text-stone-900 outline-none placeholder:text-stone-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-100 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
             />
           </div>
           <div>
-            <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-stone-700">
+            <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-stone-700 dark:text-stone-300">
               পাসওয়ার্ড
             </label>
             <input
@@ -67,11 +76,11 @@ export default function SignInPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="আপনার পাসওয়ার্ড"
-              className="w-full rounded-xl border border-stone-300 px-4 py-3 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
+              className="w-full rounded-xl border border-stone-300 px-4 py-3 text-stone-900 outline-none placeholder:text-stone-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-100 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
             />
           </div>
           {error && (
-            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-red-200">
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-red-200 dark:bg-red-950/50 dark:text-red-200 dark:ring-red-900">
               {error}
             </p>
           )}
@@ -84,9 +93,9 @@ export default function SignInPage() {
             লগইন করুন
           </button>
         </form>
-        <p className="mt-5 text-center text-sm text-stone-500">
+        <p className="mt-5 text-center text-sm text-stone-500 dark:text-stone-400">
           অ্যাকাউন্ট নেই?{" "}
-          <Link href="/signup" className="font-bold text-brand-700 underline">
+          <Link href="/signup" className="font-bold text-brand-700 underline dark:text-emerald-400">
             অ্যাকাউন্ট খুলুন
           </Link>
         </p>

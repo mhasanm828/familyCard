@@ -94,7 +94,7 @@ export default function SavedList() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="নাম বা আবেদন আইডি দিয়ে খুঁজুন…"
-            className="w-full rounded-xl border border-stone-300 bg-white py-3 pl-10 pr-4 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
+            className="w-full rounded-xl border border-stone-300 bg-white py-3 pl-10 pr-4 text-stone-900 outline-none placeholder:text-stone-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-100 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500"
           />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -105,35 +105,51 @@ export default function SavedList() {
               className={`rounded-full px-3 py-1.5 text-sm font-medium ${
                 filter === c.key
                   ? "bg-brand-700 text-white"
-                  : "bg-white text-stone-600 ring-1 ring-stone-300 hover:bg-stone-50"
+                  : "bg-white text-stone-600 ring-1 ring-stone-300 hover:bg-stone-50 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-700 dark:hover:bg-stone-800"
               }`}
             >
               {c.label}
             </button>
           ))}
+          <a
+            href="/api/saved/export?format=csv"
+            download
+            className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-bold text-brand-700 ring-1 ring-brand-300 hover:bg-brand-50 dark:bg-stone-900 dark:text-emerald-300 dark:ring-brand-800 dark:hover:bg-stone-800"
+          >
+            <Download className="h-3.5 w-3.5" />
+            CSV
+          </a>
+          <a
+            href="/api/saved/export?format=json"
+            download
+            className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-bold text-brand-700 ring-1 ring-brand-300 hover:bg-brand-50 dark:bg-stone-900 dark:text-emerald-300 dark:ring-brand-800 dark:hover:bg-stone-800"
+          >
+            <Download className="h-3.5 w-3.5" />
+            JSON
+          </a>
         </div>
       </div>
 
       {error && (
-        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200 dark:bg-red-950/50 dark:text-red-200 dark:ring-red-900">
           {error}
         </p>
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 rounded-2xl bg-white py-16 text-stone-500 ring-1 ring-stone-200">
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-white py-16 text-stone-500 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-800">
           <Loader2 className="h-5 w-5 animate-spin" />
           তালিকা আসছে…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-stone-200">
-          <Bookmark className="mx-auto h-10 w-10 text-stone-300" />
-          <p className="mt-3 font-bold text-stone-700">
+        <div className="rounded-2xl bg-white px-6 py-16 text-center ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
+          <Bookmark className="mx-auto h-10 w-10 text-stone-300 dark:text-stone-600" />
+          <p className="mt-3 font-bold text-stone-700 dark:text-stone-200">
             {rows.length === 0
               ? "এখনো কোনো আবেদন সেভ করা হয়নি।"
               : "এই ফিল্টারে কোনো আবেদন নেই।"}
           </p>
-          <p className="mt-1 text-sm text-stone-500">
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
             সার্চ পেজ থেকে তথ্য খুঁজলেই সেটা এখানে অটো-সেভ হয়ে যাবে।
           </p>
           <Link
@@ -148,27 +164,27 @@ export default function SavedList() {
           {filtered.map((r) => (
             <article
               key={r.id}
-              className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200"
+              className="flex flex-col rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="text-lg font-bold text-stone-800">
+                  <h3 className="text-lg font-bold text-stone-800 dark:text-stone-100">
                     {r.nameBn ?? r.nameEn ?? "—"}
                   </h3>
-                  <p className="text-xs text-stone-500">{r.nameEn ?? ""}</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{r.nameEn ?? ""}</p>
                 </div>
-                <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700 ring-1 ring-brand-200">
+                <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700 ring-1 ring-brand-200 dark:bg-brand-900/50 dark:text-emerald-300 dark:ring-brand-800">
                   PMT {r.score ?? "—"}
                 </span>
               </div>
               <dl className="mt-3 space-y-1 text-sm">
                 <div className="flex justify-between gap-2">
-                  <dt className="text-stone-500">আবেদন আইডি</dt>
-                  <dd className="font-mono font-semibold">{r.applicationId}</dd>
+                  <dt className="text-stone-500 dark:text-stone-400">আবেদন আইডি</dt>
+                  <dd className="font-mono font-semibold text-stone-800 dark:text-stone-100">{r.applicationId}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-stone-500">স্ট্যাটাস</dt>
-                  <dd className="font-medium">
+                  <dt className="text-stone-500 dark:text-stone-400">স্ট্যাটাস</dt>
+                  <dd className="font-medium text-stone-800 dark:text-stone-100">
                     {r.status === "2"
                       ? "অনুমোদিত"
                       : r.status === "0"
@@ -177,25 +193,25 @@ export default function SavedList() {
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-stone-500">ভাতা</dt>
-                  <dd className="font-medium">
+                  <dt className="text-stone-500 dark:text-stone-400">ভাতা</dt>
+                  <dd className="font-medium text-stone-800 dark:text-stone-100">
                     {r.allowanceAmount ? `৳${r.allowanceAmount}` : "৳০"}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-stone-500">অফিস</dt>
-                  <dd className="max-w-[60%] truncate text-right font-medium">
+                  <dt className="text-stone-500 dark:text-stone-400">অফিস</dt>
+                  <dd className="max-w-[60%] truncate text-right font-medium text-stone-800 dark:text-stone-100">
                     {r.officeName ?? "—"}
                   </dd>
                 </div>
               </dl>
               {r.paymentBlank && (
-                <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-200">
+                <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-700 ring-1 ring-red-200 dark:bg-red-950/50 dark:text-red-200 dark:ring-red-900">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   পেমেন্ট তথ্য ফাঁকা
                 </p>
               )}
-              <div className="mt-4 flex items-center gap-2 border-t border-stone-100 pt-3">
+              <div className="mt-4 flex items-center gap-2 border-t border-stone-100 pt-3 dark:border-stone-800">
                 <Link
                   href={`/saved/${r.id}`}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-bold text-white hover:bg-brand-800"
@@ -205,7 +221,7 @@ export default function SavedList() {
                 </Link>
                 <a
                   href={`/api/pdf?application_id=${encodeURIComponent(r.applicationId)}`}
-                  className="flex items-center justify-center gap-1.5 rounded-lg bg-stone-100 px-3 py-2 text-sm font-bold text-stone-700 hover:bg-stone-200"
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-stone-100 px-3 py-2 text-sm font-bold text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
                   title="অফিসিয়াল PDF"
                 >
                   <Download className="h-4 w-4" />
@@ -214,7 +230,7 @@ export default function SavedList() {
                 <button
                   onClick={() => handleDelete(r.id)}
                   disabled={deleting === r.id}
-                  className="flex items-center justify-center rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-100 disabled:opacity-50"
+                  className="flex items-center justify-center rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-100 disabled:opacity-50 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950"
                   title="মুছে ফেলুন"
                 >
                   <Trash2 className="h-4 w-4" />

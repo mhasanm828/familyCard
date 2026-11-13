@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { COLLECTIONS, getDb } from "@/lib/db";
 import {
   isPaymentBlank,
   sanitizeForDisplay,
@@ -21,9 +21,11 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * POST /api/search — login required.
  * Body: { mode: "tracking" | "idcard", trackingNo?, nid?, dateOfBirth?,
  *         captchaToken, captchaValue }
- * Forwards the search to the government API (multipart/form-data, exactly
- * like fc.bhata.gov.bd does) and, on a hit, saves the SANITIZED record
- * (no NID / mobile) under the logged-in user.
+ * Forwards the search to the government API (multipart/form-data) and, on
+ * a hit, saves the SANITIZED record (no NID / mobile) under the logged-in
+ * user. Every attempt is also recorded in the user's search history —
+ * the NID itself is never stored, only a masked label and the found
+ * application ID (when there is one) for one-tap re-runs.
  * A successful call with no record returns { data: null }.
  */
 export async function POST(req: NextRequest) {
@@ -34,6 +36,7 @@ export async function POST(req: NextRequest) {
       { status: 401 },
     );
   }
+  const userId = session.user.id;
 
   let body: {
     mode?: SearchMode;
@@ -86,6 +89,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Masked label for the history — the NID itself is never stored.
+  const queryLabel =
+    body.mode === "tracking"
+      ? `ট্র্যাকিং ${(body.trackingNo ?? "").trim()}`
+      : "আইডি কার্ড (NID/BRN)";
+
+  async function recordHistory(found: boolean, applicationId: string | null) {
+    try {
+      await getDb()
+        .collection(COLLECTIONS.searchHistory)
+        .insertOne({
+          userId,
+          mode: body.mode,
+          queryLabel,
+          applicationId,
+          found,
+          createdAt: new Date(),
+        });
+    } catch {
+      // History is a nicety — a failed insert must never break a search.
+    }
+  }
+
   try {
     const result = await searchApplicant({
       mode: body.mode,
@@ -97,6 +123,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.data) {
+      await recordHistory(false, null);
       return NextResponse.json({ status: true, data: null });
     }
 
@@ -104,62 +131,41 @@ export async function POST(req: NextRequest) {
     const applicationId = String(data.application_id ?? "");
     if (applicationId) {
       const clean = sanitizeForStorage(data);
-      await prisma.savedApplication.upsert({
-        where: {
-          userId_applicationId: {
-            userId: session.user.id,
-            applicationId,
-          },
-        },
-        update: {
-          nameBn: data.name_bn ?? null,
-          nameEn: data.name_en ?? null,
-          status: data.status != null ? String(data.status) : null,
-          score: typeof data.score === "number" ? data.score : null,
-          allowanceAmount:
-            typeof data.allowance_amount === "number"
-              ? data.allowance_amount
-              : null,
-          approveDate: data.approve_date ?? null,
-          createdAtGov: data.created_at ?? null,
-          officeName:
-            data.office_has_ward?.office?.name_bn ??
-            data.office_has_ward?.office?.name_en ??
-            null,
-          paymentBlank: isPaymentBlank(data),
-          familyMembers:
-            typeof data.no_of_family_members === "number"
-              ? data.no_of_family_members
-              : null,
-          internalId: data.id != null ? String(data.id) : null,
-          rawJson: JSON.stringify(clean),
-        },
-        create: {
-          userId: session.user.id,
-          applicationId,
-          nameBn: data.name_bn ?? null,
-          nameEn: data.name_en ?? null,
-          status: data.status != null ? String(data.status) : null,
-          score: typeof data.score === "number" ? data.score : null,
-          allowanceAmount:
-            typeof data.allowance_amount === "number"
-              ? data.allowance_amount
-              : null,
-          approveDate: data.approve_date ?? null,
-          createdAtGov: data.created_at ?? null,
-          officeName:
-            data.office_has_ward?.office?.name_bn ??
-            data.office_has_ward?.office?.name_en ??
-            null,
-          paymentBlank: isPaymentBlank(data),
-          familyMembers:
-            typeof data.no_of_family_members === "number"
-              ? data.no_of_family_members
-              : null,
-          internalId: data.id != null ? String(data.id) : null,
-          rawJson: JSON.stringify(clean),
-        },
-      });
+      const now = new Date();
+      const fields = {
+        nameBn: data.name_bn ?? null,
+        nameEn: data.name_en ?? null,
+        status: data.status != null ? String(data.status) : null,
+        score: typeof data.score === "number" ? data.score : null,
+        allowanceAmount:
+          typeof data.allowance_amount === "number"
+            ? data.allowance_amount
+            : null,
+        approveDate: data.approve_date ?? null,
+        createdAtGov: data.created_at ?? null,
+        officeName:
+          data.office_has_ward?.office?.name_bn ??
+          data.office_has_ward?.office?.name_en ??
+          null,
+        paymentBlank: isPaymentBlank(data),
+        familyMembers:
+          typeof data.no_of_family_members === "number"
+            ? data.no_of_family_members
+            : null,
+        internalId: data.id != null ? String(data.id) : null,
+        rawJson: JSON.stringify(clean),
+        updatedAt: now,
+      };
+      await getDb()
+        .collection(COLLECTIONS.savedApplications)
+        .updateOne(
+          { userId, applicationId },
+          { $set: fields, $setOnInsert: { createdAt: now } },
+          { upsert: true },
+        );
+      await recordHistory(true, applicationId);
+    } else {
+      await recordHistory(true, null);
     }
 
     return NextResponse.json({

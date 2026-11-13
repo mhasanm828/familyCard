@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: `.dark` on <html> (see ThemeToggle + layout). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --font-sans: var(--font-bangla), "Hind Siliguri", "Noto Sans Bengali",
+  --font-sans: var(--font-body), "Hind Siliguri", "Noto Sans Bengali",
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-heading), "Noto Serif Bengali",
+    "Hind Siliguri", Georgia, serif;
   --color-brand-50: #ecfdf5;
   --color-brand-100: #d1fae5;
   --color-brand-200: #a7f3d0;
@@ -26,8 +31,46 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Dark theme — applied when <html> has the .dark class. */
+.dark body {
+  background-color: #0c1210;
+  color: #e7ebe8;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
 input,
 select,
 textarea {
   font-family: inherit;
+}
+
+/* Headings use the serif display font. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+}
+
+/* ---- Print: only the result card prints ---- */
+@media print {
+  header,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .print-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
 }

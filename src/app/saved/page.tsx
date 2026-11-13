@@ -10,10 +10,10 @@ export default async function SavedPage() {
   return (
     <div className="space-y-5 pt-6">
       <div>
-        <h1 className="text-2xl font-bold text-stone-800 sm:text-3xl">
+        <h1 className="font-display text-2xl font-bold text-stone-800 sm:text-3xl dark:text-stone-100">
           সেভ করা আবেদন
         </h1>
-        <p className="mt-1 text-sm text-stone-500">
+        <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
           আপনি যেসব আবেদন খুঁজেছেন, সেগুলো এখানে জমা আছে — স্ট্যাটাস, PMT
           স্কোর আর পেমেন্ট তথ্য ফাঁকা কি না, এক নজরে দেখুন।
         </p>
