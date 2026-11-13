@@ -23,6 +23,44 @@ Next.js (App Router, TypeScript) + **Better Auth** অ্যাপ — সরক
 - **API তথ্য পাতা** — কী দিয়ে সার্চ যায়, কী দিয়ে যায় না — সত্যটা লেখা
   আছে।
 
+## ডেটাবেস — MongoDB Atlas (ফ্রি)
+
+অ্যাপটি MongoDB ব্যবহার করে (Prisma + Better Auth Prisma অ্যাডাপ্টার,
+provider `mongodb`)। কোনো Postgres/SQLite দরকার নেই।
+
+### Atlas ফ্রি ক্লাস্টার বানানো
+
+1. [cloud.mongodb.com](https://cloud.mongodb.com)-এ অ্যাকাউন্ট খুলুন
+   (ফ্রি M0 ক্লাস্টার)।
+2. **Build a Database** → **M0 Free** → ক্লাস্টার বানান (নাম যা খুশি,
+   যেমন `familycard`)।
+3. **Database Access** → **Add New Database User** → ইউজারনেম/পাসওয়ার্ড
+   দিন (পাসওয়ার্ড নিরাপদে রাখুন) → **Built-in Role: Atlas Admin** বা
+   **Read and write to any database**।
+4. **Network Access** → **Add IP Address** → **Allow Access from
+   Anywhere (`0.0.0.0/0`)** — Vercel-এর IP বদলায়, তাই এটা লাগবে।
+5. ক্লাস্টারের **Connect** → **Drivers** → কানেকশন স্ট্রিং কপি করুন:
+   `mongodb+srv://<username>:<password>@<cluster>.mongodb.net/familycard?retryWrites=true&w=majority`
+   — `<username>` / `<password>` / `<cluster>`-এর জায়গায় নিজেরটা বসান।
+   এই স্ট্রিংটাই `.env` ও Vercel-এর `DATABASE_URL`।
+6. প্রথমবার স্কিমা চালু করতে (লোকাল বা যেকোনো জায়গা থেকে, `DATABASE_URL`
+   সেট করে): `npx prisma db push` — MongoDB-তে মাইগ্রেশন চলে না, `db push`
+   দিয়েই কালেকশন/ইনডেক্স তৈরি হয়।
+
+লোকাল ডেভেও একই Atlas স্ট্রিং ব্যবহার করা যায়, অথবা লোকাল `mongod`
+চালিয়ে `DATABASE_URL="mongodb://localhost:27017/familycard"` দিন।
+লোকাল `mongod`-এর ক্ষেত্রে একটা জরুরি কথা: Better Auth ইউজার বানানোর
+সময় ট্রানজাকশন ব্যবহার করে, আর MongoDB-তে ট্রানজাকশন চলে শুধু
+replica set-এ। তাই লোকাল `mongod` চালাতে হবে single-node replica set
+হিসেবে: `mongod --replSet rs0` দিয়ে চালিয়ে `rs.initiate()` করুন, আর
+`DATABASE_URL`-এ `?replicaSet=rs0` যোগ করুন। Atlas-এ এটা আগে থেকেই
+replica set, তাই সেখানে কিছু করতে হয় না।
+
+> **নোট (Prisma সংস্করণ):** MongoDB-র জন্য Prisma 7 চলে না — Prisma-র
+> নিজের ডকুমেন্টেশন অনুযায়ী MongoDB প্রজেক্ট Prisma 6.19-এ থাকতে হয়।
+> তাই এই প্রজেক্টে `prisma` ও `@prisma/client` 6.19.2-এ পিন করা আছে;
+> আপগ্রেড করবেন না।
+
 ## লোকাল সেটআপ
 
 ```bash
@@ -30,13 +68,14 @@ npm install
 cp .env.example .env
 # .env-এ BETTER_AUTH_SECRET-এ লম্বা র‍্যান্ডম সিক্রেট দিন, যেমন:
 # openssl rand -base64 32
-npx prisma migrate dev
+# .env-এ DATABASE_URL-এ Atlas কানেকশন স্ট্রিং দিন (উপরে দেখুন)
+npx prisma db push
 npm run dev
 # http://localhost:3000
 ```
 
-> **নোট (Prisma ইঞ্জিন):** `prisma generate` / `migrate` চালাতে schema-engine
-> বাইনারি ডাউনলোড লাগে। নেটওয়ার্ক সমস্যা হলে এভাবে চালান:
+> **নোট (Prisma ইঞ্জিন):** `prisma generate` / `db push` চালাতে
+> schema-engine বাইনারি ডাউনলোড লাগে। নেটওয়ার্ক সমস্যা হলে এভাবে চালান:
 >
 > ```bash
 > export PRISMA_SCHEMA_ENGINE_BINARY="$HOME/.cache/prisma/all_commits/<commit>/debian-openssl-3.0.x/schema-engine"
@@ -49,16 +88,15 @@ npm run dev
 1. এই রিপো GitHub-এ পুশ করুন।
 2. Vercel Dashboard → **Add New → Project** → রিপো ইমপোর্ট করুন।
 3. **Environment Variables**-এ এগুলো দিন:
-   - `BETTER_AUTH_SECRET` — লম্বা র‍্যান্ডম সিক্রেট
+   - `BETTER_AUTH_SECRET` — লম্বা র‍্যান্ডম সিক্রেট (ডেভেরটা নয়, নতুন
+     করে বানান: `openssl rand -base64 32`)
    - `BETTER_AUTH_URL` — `https://<আপনার-ডোমেইন>` (যেমন
      `https://family-card-search.vercel.app`)
    - `NEXT_PUBLIC_APP_URL` — উপরের একই URL
-   - `DATABASE_URL` — Postgres কানেকশন স্ট্রিং (Neon / Supabase)।
-     **সাথে** `prisma/schema.prisma`-এ provider `sqlite` থেকে
-     `postgresql`-এ বদলাতে হবে, আর `src/lib/prisma.ts` অটোমেটিক pg
-     অ্যাডাপ্টার ব্যবহার করবে।
-4. Deploy করুন। প্রথম ডিপ্লয়ের পর ডেটাবেসে টেবিল বানাতে একবার চালান:
-   `npx prisma migrate deploy` (DATABASE_URL সেট করে)।
+   - `DATABASE_URL` — Atlas MongoDB কানেকশন স্ট্রিং (উপরে দেখুন)।
+4. Deploy করুন। প্রথম ডিপ্লয়ের পর একবার চালান:
+   `npx prisma db push` (DATABASE_URL সেট করে) — এতে MongoDB-তে
+   কালেকশন/ইনডেক্স তৈরি হবে।
 
 ## API চুক্তি (যাচাই করা)
 
@@ -99,12 +137,11 @@ src/
   lib/
     auth.ts               Better Auth কনফিগ
     auth-client.ts        Better Auth React ক্লায়েন্ট
-    prisma.ts             PrismaClient (SQLite / Postgres অ্যাডাপ্টার)
+    prisma.ts             PrismaClient (MongoDB — কোনো ড্রাইভার অ্যাডাপ্টার লাগে না)
     familycard.ts         সরকারি API ক্লায়েন্ট + NID/মোবাইল মাস্কিং
     session.ts            সার্ভার-সাইড লগইন গার্ড
 prisma/
-  schema.prisma           User/Session/Account/Verification + SavedApplication
-  migrations/             SQLite মাইগ্রেশন
+  schema.prisma           User/Session/Account/Verification + SavedApplication (MongoDB)
 ```
 
 ## গোপনীয়তা
