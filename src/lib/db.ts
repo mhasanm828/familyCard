@@ -96,15 +96,23 @@ export interface SavedApplicationDoc {
 }
 
 /** One search attempt by a user. queryLabel is masked — the NID itself
- *  is NEVER stored. Re-runs use the applicationId when known. */
+ *  is NEVER stored. Re-runs use queryId (tracking no / PDF id) when it
+ *  is safe to store; for NID searches queryId is null on purpose.
+ *  result: "found" (record shown), "not_found" (no record / no PDF),
+ *  "pdf" (PDF available — ID-PDF mode), "error" (gov API / network
+ *  failure). `found` stays for backwards compatibility. */
+export type SearchResultStatus = "found" | "not_found" | "pdf" | "error";
+
 export interface SearchHistoryDoc {
   _id?: ObjectId;
   id?: string;
   userId: string;
-  mode: "tracking" | "idcard";
+  mode: "tracking" | "idcard" | "idpdf";
   queryLabel: string;
+  queryId?: string | null;
   applicationId?: string | null;
   found: boolean;
+  result?: SearchResultStatus;
   createdAt: Date;
 }
 

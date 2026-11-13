@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { COLLECTIONS, getDb, ObjectId, regexEscape, toPlain } from "@/lib/db";
+import { saveApplicationRecord } from "@/lib/save-application";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,46 @@ export async function GET(req: NextRequest) {
     .sort({ createdAt: -1 })
     .toArray();
   return NextResponse.json({ items: rows.map((r) => toPlain(r)) });
+}
+
+/** POST /api/saved — explicitly save one application (the "সেভ করুন"
+ *  button on a search result). Body: { applicationId, data } where
+ *  data is the sanitized record the search returned. The record is
+ *  re-sanitized server-side and upserted, so tapping Save twice is
+ *  safe — the second tap just updates the same row. */
+export async function POST(req: NextRequest) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.json({ error: "লগইন করা প্রয়োজন।" }, { status: 401 });
+  }
+  let body: {
+    applicationId?: string;
+    data?: Record<string, unknown>;
+  };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return NextResponse.json({ error: "ভুল অনুরোধ।" }, { status: 400 });
+  }
+  const applicationId = String(body.applicationId ?? "").trim();
+  if (!/^\d{10}$/.test(applicationId) || !body.data) {
+    return NextResponse.json(
+      { error: "আবেদন আইডি ও তথ্য দিন।" },
+      { status: 400 },
+    );
+  }
+  const data = {
+    ...body.data,
+    application_id: applicationId,
+  } as Parameters<typeof saveApplicationRecord>[1];
+  const ok = await saveApplicationRecord(session.user.id, data);
+  if (!ok) {
+    return NextResponse.json(
+      { error: "সেভ করা যায়নি।" },
+      { status: 400 },
+    );
+  }
+  return NextResponse.json({ ok: true, saved: true });
 }
 
 /** DELETE /api/saved?id=<saved id> — delete one of the user's own rows. */

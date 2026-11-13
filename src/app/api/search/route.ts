@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { COLLECTIONS, getDb } from "@/lib/db";
+import { COLLECTIONS, getDb, type SearchResultStatus } from "@/lib/db";
 import {
-  isPaymentBlank,
+  maskNid,
   sanitizeForDisplay,
-  sanitizeForStorage,
   searchApplicant,
   type SearchMode,
 } from "@/lib/familycard";
+import { saveApplicationRecord } from "@/lib/save-application";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +23,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  *         captchaToken, captchaValue }
  * Forwards the search to the government API (multipart/form-data) and, on
  * a hit, saves the SANITIZED record (no NID / mobile) under the logged-in
- * user. Every attempt is also recorded in the user's search history —
- * the NID itself is never stored, only a masked label and the found
- * application ID (when there is one) for one-tap re-runs.
+ * user. EVERY attempt is recorded in search_history — found, not-found
+ * and errors alike — with only a masked label (the NID itself is never
+ * stored; DOB is never stored).
  * A successful call with no record returns { data: null }.
  */
 export async function POST(req: NextRequest) {
@@ -89,22 +89,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Masked label for the history — the NID itself is never stored.
+  // Masked label for the history — the NID itself is never stored,
+  // and the date of birth is never stored at all.
+  const mode = body.mode as "tracking" | "idcard";
   const queryLabel =
-    body.mode === "tracking"
+    mode === "tracking"
       ? `ট্র্যাকিং ${(body.trackingNo ?? "").trim()}`
-      : "আইডি কার্ড (NID/BRN)";
+      : `NID ${maskNid(body.nid ?? "")}`;
+  const queryId =
+    mode === "tracking" ? (body.trackingNo ?? "").trim() : null;
 
-  async function recordHistory(found: boolean, applicationId: string | null) {
+  async function recordHistory(
+    result: SearchResultStatus,
+    applicationId: string | null,
+  ) {
     try {
       await getDb()
         .collection(COLLECTIONS.searchHistory)
         .insertOne({
           userId,
-          mode: body.mode,
+          mode,
           queryLabel,
+          queryId,
           applicationId,
-          found,
+          found: result === "found",
+          result,
           createdAt: new Date(),
         });
     } catch {
@@ -114,7 +123,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await searchApplicant({
-      mode: body.mode,
+      mode,
       trackingNo: body.trackingNo?.trim(),
       nid: body.nid?.trim(),
       dateOfBirth: body.dateOfBirth,
@@ -123,58 +132,26 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.data) {
-      await recordHistory(false, null);
-      return NextResponse.json({ status: true, data: null });
+      await recordHistory("not_found", null);
+      return NextResponse.json({ status: true, data: null, saved: false });
     }
 
     const data = result.data;
     const applicationId = String(data.application_id ?? "");
-    if (applicationId) {
-      const clean = sanitizeForStorage(data);
-      const now = new Date();
-      const fields = {
-        nameBn: data.name_bn ?? null,
-        nameEn: data.name_en ?? null,
-        status: data.status != null ? String(data.status) : null,
-        score: typeof data.score === "number" ? data.score : null,
-        allowanceAmount:
-          typeof data.allowance_amount === "number"
-            ? data.allowance_amount
-            : null,
-        approveDate: data.approve_date ?? null,
-        createdAtGov: data.created_at ?? null,
-        officeName:
-          data.office_has_ward?.office?.name_bn ??
-          data.office_has_ward?.office?.name_en ??
-          null,
-        paymentBlank: isPaymentBlank(data),
-        familyMembers:
-          typeof data.no_of_family_members === "number"
-            ? data.no_of_family_members
-            : null,
-        internalId: data.id != null ? String(data.id) : null,
-        rawJson: JSON.stringify(clean),
-        updatedAt: now,
-      };
-      await getDb()
-        .collection(COLLECTIONS.savedApplications)
-        .updateOne(
-          { userId, applicationId },
-          { $set: fields, $setOnInsert: { createdAt: now } },
-          { upsert: true },
-        );
-      await recordHistory(true, applicationId);
-    } else {
-      await recordHistory(true, null);
-    }
+    const saved = applicationId
+      ? await saveApplicationRecord(userId, data)
+      : false;
+    await recordHistory("found", applicationId || null);
 
     return NextResponse.json({
       status: true,
       data: sanitizeForDisplay(data),
+      saved,
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "সার্চ করতে ব্যর্থ হয়েছে।";
+    await recordHistory("error", null);
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

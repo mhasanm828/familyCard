@@ -24,7 +24,7 @@ export default async function AccountPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 pt-6">
+    <div className="animate-fade-up mx-auto max-w-2xl space-y-5 pt-6">
       <h1 className="font-display text-2xl font-bold text-stone-800 sm:text-3xl dark:text-stone-100">
         আমার অ্যাকাউন্ট
       </h1>
@@ -70,6 +70,13 @@ export default async function AccountPage() {
           </div>
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href="/profile"
+            className="flex items-center gap-2 rounded-xl bg-brand-700 px-5 py-3 text-sm font-bold text-white hover:bg-brand-800"
+          >
+            <User className="h-4 w-4" />
+            আমার প্রোফাইল দেখুন
+          </Link>
           <Link
             href="/saved"
             className="flex items-center gap-2 rounded-xl bg-brand-700 px-5 py-3 text-sm font-bold text-white hover:bg-brand-800"

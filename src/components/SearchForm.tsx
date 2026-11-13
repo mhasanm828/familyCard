@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  Download,
+  FileDown,
   History,
   Loader2,
   RefreshCw,
@@ -24,15 +26,29 @@ type SearchResult =
   | { state: "loading" }
   | { state: "error"; message: string }
   | { state: "notfound" }
-  | { state: "found"; data: ApplicantData };
+  | { state: "found"; data: ApplicantData; saved: boolean }
+  | {
+      state: "pdf";
+      pdfUrl: string;
+      data: ApplicantData | null;
+      saved: boolean;
+    };
 
 type HistoryItem = {
   id: string;
   mode: SearchMode;
   queryLabel: string;
+  queryId?: string | null;
   applicationId?: string | null;
   found: boolean;
+  result?: "found" | "not_found" | "pdf" | "error";
   createdAt: string;
+};
+
+const MODE_LABEL: Record<SearchMode, string> = {
+  tracking: "ট্র্যাকিং সার্চ",
+  idcard: "আইডি কার্ড সার্চ",
+  idpdf: "আইডি PDF",
 };
 
 export default function SearchForm() {
@@ -40,6 +56,7 @@ export default function SearchForm() {
   const [trackingNo, setTrackingNo] = useState("");
   const [nid, setNid] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [pdfId, setPdfId] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaImage, setCaptchaImage] = useState<string | null>(null);
   const [captchaValue, setCaptchaValue] = useState("");
@@ -48,6 +65,10 @@ export default function SearchForm() {
   const [result, setResult] = useState<SearchResult>({ state: "idle" });
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const captchaInputRef = useRef<HTMLInputElement>(null);
+
+  // ID-PDF mode needs a captcha ONLY for 10-digit ids (the tracking
+  // lookup runs then). A 7-digit internal id only fetches the PDF.
+  const pdfNeedsCaptcha = mode === "idpdf" && pdfId.trim().length === 10;
 
   const loadCaptcha = useCallback(async () => {
     setCaptchaLoading(true);
@@ -124,9 +145,63 @@ export default function SearchForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!captchaToken) return;
     setResult({ state: "loading" });
     try {
+      if (mode === "idpdf") {
+        const id = pdfId.trim();
+        if (!/^(\d{7}|\d{10})$/.test(id)) {
+          throw new Error(
+            "আইডি ৭ ডিজিট (ভেতরের আইডি) বা ১০ ডিজিট (আবেদন আইডি) হতে হবে।",
+          );
+        }
+        if (id.length === 10 && !captchaToken) {
+          throw new Error("ক্যাপচা আসেনি — নতুন ক্যাপচা নিন।");
+        }
+        const res = await fetch("/api/pdf-search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id,
+            captchaToken: id.length === 10 ? captchaToken : undefined,
+            captchaValue: id.length === 10 ? captchaValue : undefined,
+          }),
+        });
+        const data = (await res.json()) as {
+          pdfOk?: boolean;
+          pdfUrl?: string | null;
+          data?: ApplicantData | null;
+          saved?: boolean;
+          error?: string;
+        };
+        if (!res.ok) {
+          throw new Error(data.error ?? "PDF খুঁজতে ব্যর্থ হয়েছে।");
+        }
+        if (data.data) {
+          // 10-digit hit: show the full result above the PDF button.
+          setResult({
+            state: "pdf",
+            pdfUrl: data.pdfUrl ?? "",
+            data: data.data,
+            saved: Boolean(data.saved),
+          });
+        } else if (data.pdfOk && data.pdfUrl) {
+          setResult({
+            state: "pdf",
+            pdfUrl: data.pdfUrl,
+            data: null,
+            saved: false,
+          });
+        } else {
+          setResult({ state: "notfound" });
+        }
+        loadCaptcha();
+        loadHistory();
+        return;
+      }
+
+      if (!captchaToken) {
+        throw new Error("ক্যাপচা আসেনি — নতুন ক্যাপচা নিন।");
+      }
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,13 +217,16 @@ export default function SearchForm() {
       const data = (await res.json()) as {
         status?: boolean;
         data?: ApplicantData | null;
+        saved?: boolean;
         error?: string;
       };
       if (!res.ok) {
         throw new Error(data.error ?? "সার্চ করতে ব্যর্থ হয়েছে।");
       }
       setResult(
-        data.data ? { state: "found", data: data.data } : { state: "notfound" },
+        data.data
+          ? { state: "found", data: data.data, saved: Boolean(data.saved) }
+          : { state: "notfound" },
       );
       loadCaptcha();
       loadHistory();
@@ -162,12 +240,18 @@ export default function SearchForm() {
     }
   }
 
-  /** One-tap re-run from history (tracking searches only — those need
-   *  no NID, just the application ID). */
+  /** One-tap re-run from history. Tracking and ID-PDF searches only
+   *  need the stored id; NID searches need the NID again (never stored). */
   function rerun(item: HistoryItem) {
-    if (!item.applicationId) return;
-    setMode("tracking");
-    setTrackingNo(item.applicationId);
+    const id = item.queryId ?? item.applicationId ?? "";
+    if (!id) return;
+    if (item.mode === "idpdf") {
+      setMode("idpdf");
+      setPdfId(id);
+    } else {
+      setMode("tracking");
+      setTrackingNo(id);
+    }
     setResult({ state: "idle" });
     captchaInputRef.current?.focus();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -182,7 +266,7 @@ export default function SearchForm() {
 
   async function clearHistory() {
     if (!confirm("সার্চের পুরো ইতিহাস মুছে ফেলবেন?")) return;
-    await fetch("/api/history?all=1", { method: "DELETE" });
+    await fetch(`/api/history?all=1`, { method: "DELETE" });
     setHistory([]);
   }
 
@@ -190,34 +274,32 @@ export default function SearchForm() {
     <div className="space-y-6">
       <form
         onSubmit={handleSubmit}
-        className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200 sm:p-6 dark:bg-stone-900 dark:ring-stone-800"
+        className="animate-fade-up rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200 sm:p-6 dark:bg-stone-900 dark:ring-stone-800"
       >
         <h2 className="text-xl font-bold text-stone-800 dark:text-stone-100">আবেদন খুঁজুন</h2>
 
-        {/* Mode tabs */}
-        <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-stone-100 p-1 dark:bg-stone-800">
-          <button
-            type="button"
-            onClick={() => setMode("tracking")}
-            className={`rounded-lg px-3 py-2.5 text-sm font-bold transition ${
-              mode === "tracking"
-                ? "bg-white text-brand-700 shadow dark:bg-stone-900 dark:text-emerald-300"
-                : "text-stone-600 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
-            }`}
-          >
-            ট্র্যাকিং নম্বর দিয়ে
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("idcard")}
-            className={`rounded-lg px-3 py-2.5 text-sm font-bold transition ${
-              mode === "idcard"
-                ? "bg-white text-brand-700 shadow dark:bg-stone-900 dark:text-emerald-300"
-                : "text-stone-600 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
-            }`}
-          >
-            আইডি কার্ড (NID/BRN) দিয়ে
-          </button>
+        {/* Mode tabs — three modes now */}
+        <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-stone-100 p-1 dark:bg-stone-800">
+          {(
+            [
+              { key: "tracking", label: "ট্র্যাকিং নম্বর" },
+              { key: "idcard", label: "আইডি কার্ড (NID/BRN)" },
+              { key: "idpdf", label: "আইডি দিয়ে PDF" },
+            ] as { key: SearchMode; label: string }[]
+          ).map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setMode(key)}
+              className={`rounded-lg px-2 py-2.5 text-sm font-bold transition active:scale-[0.98] ${
+                mode === key
+                  ? "bg-white text-brand-700 shadow dark:bg-stone-900 dark:text-emerald-300"
+                  : "text-stone-600 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <div className="mt-5 space-y-4">
@@ -242,7 +324,7 @@ export default function SearchForm() {
                 required
               />
             </div>
-          ) : (
+          ) : mode === "idcard" ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label
@@ -281,66 +363,103 @@ export default function SearchForm() {
                 />
               </div>
             </div>
+          ) : (
+            <div>
+              <label
+                htmlFor="pdfId"
+                className="mb-1.5 block text-sm font-medium text-stone-700 dark:text-stone-300"
+              >
+                আবেদন আইডি (১০ ডিজিট) অথবা ভেতরের আইডি (৭ ডিজিট)
+              </label>
+              <input
+                id="pdfId"
+                inputMode="numeric"
+                value={pdfId}
+                onChange={(e) =>
+                  setPdfId(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                maxLength={10}
+                placeholder="যেমন: 1234567 অথবা 1234567890"
+                className="w-full rounded-xl border border-stone-300 px-4 py-3 text-lg font-mono tracking-wider text-stone-900 placeholder:text-stone-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
+                required
+              />
+              <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-stone-500 dark:text-stone-400">
+                <FileDown className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                PDF ডাউনলোডের শর্টকাট — সরকারি আবেদনপত্রের PDF সরাসরি
+                নামবে। ১০ ডিজিটের আইডি দিলে উপরে আবেদনের সংক্ষিপ্ত তথ্যও
+                দেখাবে (ক্যাপচা লাগবে); ৭ ডিজিটের ভেতরের আইডিতে শুধু PDF।
+              </p>
+            </div>
           )}
 
-          {/* Captcha */}
-          <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium text-stone-700 dark:text-stone-300">
-                ক্যাপচা — ছবির অঙ্কের উত্তর লিখুন
-              </p>
-              <button
-                type="button"
-                onClick={loadCaptcha}
-                disabled={captchaLoading}
-                className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-stone-600 ring-1 ring-stone-200 hover:bg-stone-100 disabled:opacity-50 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-700 dark:hover:bg-stone-700"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${captchaLoading ? "animate-spin" : ""}`}
-                />
-                নতুন ক্যাপচা
-              </button>
+          {/* Captcha — needed for tracking/idcard, and for 10-digit PDF ids.
+              Hidden for 7-digit PDF ids (no tracking lookup runs there). */}
+          {(mode !== "idpdf" || pdfNeedsCaptcha) && (
+            <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-300">
+                  ক্যাপচা — ছবির অঙ্কের উত্তর লিখুন
+                </p>
+                <button
+                  type="button"
+                  onClick={loadCaptcha}
+                  disabled={captchaLoading}
+                  className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-stone-600 ring-1 ring-stone-200 hover:bg-stone-100 disabled:opacity-50 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-700 dark:hover:bg-stone-700"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${captchaLoading ? "animate-spin" : ""}`}
+                  />
+                  নতুন ক্যাপচা
+                </button>
+              </div>
+              {captchaError ? (
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400">{captchaError}</p>
+              ) : captchaLoading || !captchaImage ? (
+                <div className="mt-3 flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  ক্যাপচা আসছে…
+                </div>
+              ) : (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={captchaImage}
+                    alt="ক্যাপচা ছবি"
+                    className="h-14 rounded-lg border border-stone-300 bg-white dark:border-stone-600"
+                  />
+                  <input
+                    ref={captchaInputRef}
+                    type="number"
+                    inputMode="numeric"
+                    value={captchaValue}
+                    onChange={(e) => setCaptchaValue(e.target.value)}
+                    placeholder="উত্তর"
+                    className="w-32 rounded-xl border border-stone-300 px-4 py-3 text-lg text-stone-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
+                    required={mode !== "idpdf" || pdfNeedsCaptcha}
+                  />
+                </div>
+              )}
             </div>
-            {captchaError ? (
-              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{captchaError}</p>
-            ) : captchaLoading || !captchaImage ? (
-              <div className="mt-3 flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                ক্যাপচা আসছে…
-              </div>
-            ) : (
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={captchaImage}
-                  alt="ক্যাপচা ছবি"
-                  className="h-14 rounded-lg border border-stone-300 bg-white dark:border-stone-600"
-                />
-                <input
-                  ref={captchaInputRef}
-                  type="number"
-                  inputMode="numeric"
-                  value={captchaValue}
-                  onChange={(e) => setCaptchaValue(e.target.value)}
-                  placeholder="উত্তর"
-                  className="w-32 rounded-xl border border-stone-300 px-4 py-3 text-lg text-stone-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
-                  required
-                />
-              </div>
-            )}
-          </div>
+          )}
 
           <button
             type="submit"
             disabled={
-              result.state === "loading" || !captchaToken || captchaLoading
+              result.state === "loading" ||
+              (mode !== "idpdf" && (!captchaToken || captchaLoading)) ||
+              (mode === "idpdf" && pdfNeedsCaptcha && (!captchaToken || captchaLoading))
             }
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-6 py-3.5 text-base font-bold text-white shadow hover:bg-brand-800 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-6 py-3.5 text-base font-bold text-white shadow transition hover:bg-brand-800 active:scale-[0.99] disabled:opacity-50"
           >
             {result.state === "loading" ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
                 খোঁজা হচ্ছে…
+              </>
+            ) : mode === "idpdf" ? (
+              <>
+                <FileDown className="h-5 w-5" />
+                PDF খুঁজুন
               </>
             ) : (
               <>
@@ -354,7 +473,7 @@ export default function SearchForm() {
 
       {/* Search history */}
       {history.length > 0 && (
-        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200 sm:p-6 dark:bg-stone-900 dark:ring-stone-800">
+        <section className="animate-fade-up rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200 sm:p-6 dark:bg-stone-900 dark:ring-stone-800">
           <div className="flex items-center justify-between gap-2">
             <h3 className="flex items-center gap-2 text-lg font-bold text-stone-800 dark:text-stone-100">
               <History className="h-5 w-5 text-brand-700 dark:text-emerald-400" />
@@ -390,14 +509,22 @@ export default function SearchForm() {
                     {item.queryLabel}
                   </p>
                   <p className="text-xs text-stone-500 dark:text-stone-400">
-                    {item.found ? "পাওয়া গেছে" : "পাওয়া যায়নি"} •{" "}
+                    {MODE_LABEL[item.mode] ?? item.mode} •{" "}
+                    {item.result === "pdf"
+                      ? "PDF পাওয়া গেছে"
+                      : item.found
+                        ? "পাওয়া গেছে"
+                        : item.result === "error"
+                          ? "সমস্যা হয়েছে"
+                          : "পাওয়া যায়নি"}{" "}
+                    •{" "}
                     {new Date(item.createdAt).toLocaleString("bn-BD", {
                       dateStyle: "medium",
                       timeStyle: "short",
                     })}
                   </p>
                 </div>
-                {item.applicationId ? (
+                {item.queryId || item.applicationId ? (
                   <button
                     type="button"
                     onClick={() => rerun(item)}
@@ -429,16 +556,25 @@ export default function SearchForm() {
         </section>
       )}
 
-      {/* Result */}
+      {/* Result — loading skeleton */}
       {result.state === "loading" && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl bg-white p-8 text-stone-600 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-800">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          সরকারি সিস্টেম থেকে তথ্য আনা হচ্ছে…
+        <div className="animate-fade-in space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200 sm:p-6 dark:bg-stone-900 dark:ring-stone-800">
+          <div className="flex items-center gap-2 text-stone-600 dark:text-stone-300">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            সরকারি সিস্টেম থেকে তথ্য আনা হচ্ছে…
+          </div>
+          <div className="h-24 animate-pulse rounded-xl bg-stone-100 dark:bg-stone-800" />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="h-28 animate-pulse rounded-xl bg-stone-100 dark:bg-stone-800" />
+            <div className="h-28 animate-pulse rounded-xl bg-stone-100 dark:bg-stone-800" />
+            <div className="h-28 animate-pulse rounded-xl bg-stone-100 dark:bg-stone-800" />
+          </div>
+          <div className="h-10 w-2/3 animate-pulse rounded-xl bg-stone-100 dark:bg-stone-800" />
         </div>
       )}
 
       {result.state === "error" && (
-        <div className="flex gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
+        <div className="animate-fade-in flex gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-200">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
             <p className="font-bold">সার্চ করা যায়নি</p>
@@ -451,17 +587,44 @@ export default function SearchForm() {
       )}
 
       {result.state === "notfound" && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+        <div className="animate-fade-in rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
           <p className="font-bold">এই তথ্যে কোনো আবেদন পাওয়া যায়নি</p>
           <p className="mt-1 text-sm">
             ট্র্যাকিং নম্বর বা NID + জন্ম তারিখ ঠিক আছে কি না আবার দেখুন।
-            ট্র্যাকিং নম্বরই আবেদন আইডি (১০ ডিজিট)।
+            ট্র্যাকিং নম্বরই আবেদন আইডি (১০ ডিজিট)। ৭ ডিজিটের আইডি দিয়ে
+            শুধু PDF নামে।
           </p>
         </div>
       )}
 
-      {result.state === "found" && (
-        <ResultView data={result.data} />
+      {result.state === "found" && <ResultView data={result.data} initialSaved={result.saved} />}
+
+      {result.state === "pdf" && (
+        <div className="animate-fade-up space-y-5">
+          {result.data && (
+            <ResultView data={result.data} initialSaved={result.saved} />
+          )}
+          <div className="flex flex-col items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-5 text-emerald-900 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-100">
+            <div className="flex items-start gap-3">
+              <FileDown className="mt-0.5 h-6 w-6 shrink-0 text-emerald-700 dark:text-emerald-300" />
+              <div>
+                <p className="font-bold">অফিসিয়াল আবেদনপত্র PDF তৈরি আছে</p>
+                <p className="mt-0.5 text-sm">
+                  {result.data
+                    ? "উপরে আবেদনের তথ্য দেখতে পাচ্ছেন — নিচের বাটনে PDF ডাউনলোড করুন।"
+                    : "৭ ডিজিটের ভেতরের আইডি দিয়ে শুধু PDF-ই পাওয়া যায় — বিস্তারিত তথ্য দেখতে ১০ ডিজিটের আবেদন আইডি দিয়ে ট্র্যাকিং সার্চ করুন।"}
+                </p>
+              </div>
+            </div>
+            <a
+              href={result.pdfUrl}
+              className="flex shrink-0 items-center gap-2 rounded-xl bg-brand-700 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-brand-800 active:scale-[0.98]"
+            >
+              <Download className="h-4 w-4" />
+              PDF ডাউনলোড করুন
+            </a>
+          </div>
+        </div>
       )}
 
       {result.state === "found" && (

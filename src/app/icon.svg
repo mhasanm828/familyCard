@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#065f46"/>
+  <rect x="86" y="128" width="340" height="236" rx="28" fill="none" stroke="#f59e0b" stroke-width="26"/>
+  <rect x="86" y="128" width="340" height="72" rx="28" fill="#f59e0b"/>
+  <text x="256" y="330" font-family="Arial, Helvetica, sans-serif" font-size="128" font-weight="bold" fill="#ffffff" text-anchor="middle">FC</text>
+  <rect x="126" y="392" width="260" height="14" rx="7" fill="#f59e0b" opacity="0.85"/>
+</svg>

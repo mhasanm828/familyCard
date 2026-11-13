@@ -10,6 +10,7 @@ const NAV = [
   { href: "/", label: "হোম", icon: Landmark },
   { href: "/search", label: "সার্চ", icon: Search },
   { href: "/saved", label: "সেভ করা", icon: Bookmark },
+  { href: "/profile", label: "প্রোফাইল", icon: User },
 ];
 
 export default function Header() {
@@ -64,7 +65,7 @@ export default function Header() {
           ) : session ? (
             <>
               <Link
-                href="/account"
+                href="/profile"
                 className="hidden items-center gap-1.5 rounded-lg bg-stone-100 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-200 sm:flex dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-stone-700"
               >
                 <User className="h-4 w-4" />

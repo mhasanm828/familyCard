@@ -3,6 +3,8 @@
 import { useState } from "react";
 import {
   AlertTriangle,
+  BookmarkCheck,
+  BookmarkPlus,
   Calendar,
   Check,
   ClipboardCopy,
@@ -10,6 +12,7 @@ import {
   FileText,
   Home,
   IdCard,
+  Loader2,
   MapPin,
   Printer,
   Users,
@@ -95,9 +98,20 @@ export function buildSummary(data: ApplicantData): string {
   return lines.join("\n");
 }
 
-export default function ResultView({ data }: { data: ApplicantData }) {
+export default function ResultView({
+  data,
+  initialSaved = false,
+}: {
+  data: ApplicantData;
+  /** True when this record is already in the user's saved list
+   *  (auto-saved by the search, or opened from /saved). */
+  initialSaved?: boolean;
+}) {
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(initialSaved);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const status = statusLabel(data.status);
   const paymentBlank = isPaymentBlank(data);
   const officeName =
@@ -105,6 +119,39 @@ export default function ResultView({ data }: { data: ApplicantData }) {
     data.office_has_ward?.office?.name_en ??
     "—";
   const created = data.created_at ? new Date(data.created_at) : null;
+
+  /** Explicit save — POSTs the (already sanitized) record to /api/saved.
+   *  Upsert on the server makes a second tap harmless. */
+  async function saveNow() {
+    if (!data.application_id || saved || saving) return;
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const res = await fetch("/api/saved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          applicationId: String(data.application_id),
+          data,
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error ?? "সেভ করা যায়নি।");
+      }
+      setSaved(true);
+      setSaveMessage("✓ সেভ হয়েছে — সেভ করা তালিকায় দেখতে পাবেন।");
+    } catch (e) {
+      setSaveMessage(
+        e instanceof Error ? e.message : "সেভ করা যায়নি — আবার চেষ্টা করুন।",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function copySummary() {
     const text = buildSummary(data);
@@ -124,7 +171,7 @@ export default function ResultView({ data }: { data: ApplicantData }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="animate-fade-up space-y-5">
       {/* Summary header */}
       <div className="print-card overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
         <div className="bg-brand-800 px-5 py-4 text-white sm:px-6 dark:bg-brand-900">
@@ -278,12 +325,38 @@ export default function ResultView({ data }: { data: ApplicantData }) {
         {data.application_id && (
           <a
             href={officialPdfUrl(String(data.application_id))}
-            className="flex items-center gap-2 rounded-xl bg-brand-700 px-5 py-3 text-sm font-bold text-white shadow hover:bg-brand-800"
+            className="flex items-center gap-2 rounded-xl bg-brand-700 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-brand-800 active:scale-[0.98]"
           >
             <Download className="h-4 w-4" />
             অফিসিয়াল আবেদনপত্র PDF ডাউনলোড
           </a>
         )}
+        <button
+          onClick={saveNow}
+          disabled={saved || saving}
+          className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold shadow-sm ring-1 transition active:scale-[0.98] ${
+            saved
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800"
+              : "bg-white text-stone-700 ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-700 dark:hover:bg-stone-700"
+          } disabled:opacity-90`}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              সেভ হচ্ছে…
+            </>
+          ) : saved ? (
+            <>
+              <BookmarkCheck className="h-4 w-4" />
+              ✓ সেভ করা আছে
+            </>
+          ) : (
+            <>
+              <BookmarkPlus className="h-4 w-4" />
+              সেভ করুন
+            </>
+          )}
+        </button>
         <button
           onClick={copySummary}
           className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-stone-700 shadow-sm ring-1 ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-700 dark:hover:bg-stone-700"
@@ -319,6 +392,18 @@ export default function ResultView({ data }: { data: ApplicantData }) {
           NID / মোবাইল নম্বর দেখানো হয় না — Raw JSON-এ *** দিয়ে ঢাকা আছে।
         </span>
       </div>
+
+      {saveMessage && (
+        <p
+          className={`no-print rounded-xl px-4 py-3 text-sm font-medium ring-1 ${
+            saved
+              ? "bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-900"
+              : "bg-red-50 text-red-700 ring-red-200 dark:bg-red-950/50 dark:text-red-200 dark:ring-red-900"
+          }`}
+        >
+          {saveMessage}
+        </p>
+      )}
 
       {showJson && (
         <pre className="no-print max-h-96 overflow-auto rounded-2xl bg-stone-900 p-4 text-xs leading-relaxed text-emerald-100 dark:ring-1 dark:ring-stone-700">

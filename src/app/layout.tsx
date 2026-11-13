@@ -36,7 +36,11 @@ const THEME_BOOTSTRAP = `(function(){try{var t=localStorage.getItem("fc-theme");
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="bn" suppressHydrationWarning>
+    <html
+      lang="bn"
+      suppressHydrationWarning
+      className={anekBangla.className}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>

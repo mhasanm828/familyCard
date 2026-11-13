@@ -141,7 +141,7 @@ export function statusLabel(status?: string): {
 }
 
 export async function fetchCaptcha(): Promise<CaptchaResponse> {
-  const res = await fetch(`${GOV_API_BASE}/captcha`, {
+  const res = await fetchWithTimeout(`${GOV_API_BASE}/captcha`, {
     headers: GOV_HEADERS,
     cache: "no-store",
   });
@@ -151,7 +151,56 @@ export async function fetchCaptcha(): Promise<CaptchaResponse> {
   return (await res.json()) as CaptchaResponse;
 }
 
-export type SearchMode = "tracking" | "idcard";
+export type SearchMode = "tracking" | "idcard" | "idpdf";
+
+/** Mask an NID/BRN for history labels: first 3 + "***" + last 2.
+ *  The full number is never stored anywhere. */
+export function maskNid(nid: string): string {
+  const clean = (nid ?? "").trim();
+  if (clean.length <= 5) return "***";
+  return `${clean.slice(0, 3)}***${clean.slice(-2)}`;
+}
+
+/** Check whether the official PDF exists for an application/internal
+ *  id — GETs the applicants_copy endpoint and cancels the body after
+ *  the headers arrive, so no PDF bytes are downloaded. Works with
+ *  both the 10-digit application id and the 7-digit internal id.
+ *  Any failure (timeout, network, non-PDF answer) means "no PDF" —
+ *  it never throws, so a slow/unknown id degrades to a clean
+ *  not-found instead of hanging the request. */
+export async function checkPdfAvailable(
+  applicationId: string,
+): Promise<boolean> {
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(
+      `${GOV_API_BASE}/global/applicants_copy?application_id=${encodeURIComponent(
+        applicationId,
+      )}&lang=bn`,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+          Origin: "https://fc.bhata.gov.bd",
+          Referer: "https://fc.bhata.gov.bd/application-tracking",
+          Accept: "application/pdf",
+        },
+        cache: "no-store",
+      },
+      30000,
+    );
+  } catch {
+    return false;
+  }
+  const ok =
+    res.ok && (res.headers.get("content-type") ?? "").includes("pdf");
+  try {
+    await res.body?.cancel();
+  } catch {
+    // Ignore — the connection is already closing.
+  }
+  return ok;
+}
 
 export interface SearchInput {
   mode: SearchMode;
@@ -160,6 +209,28 @@ export interface SearchInput {
   dateOfBirth?: string;
   captchaToken: string;
   captchaValue: number;
+}
+
+/** fetch() with a hard timeout — the government API sometimes hangs
+ *  on unknown ids, and an unbounded fetch would freeze the request
+ *  (and the user's form) forever. Aborts throw a Bangla error. */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  ms = 30000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error("সরকারি সার্ভার থেকে সাড়া আসছে না — আবার চেষ্টা করুন।");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function searchApplicant(
@@ -180,7 +251,7 @@ export async function searchApplicant(
     form.append("date_of_birth", input.dateOfBirth ?? "");
   }
 
-  const res = await fetch(`${GOV_API_BASE}/global/applicants_tracking`, {
+  const res = await fetchWithTimeout(`${GOV_API_BASE}/global/applicants_tracking`, {
     method: "POST",
     headers: GOV_HEADERS,
     body: form,

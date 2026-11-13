@@ -32,7 +32,53 @@ html {
 body {
   background-color: #f4f6f4;
   color: #1c2420;
-  font-family: var(--font-sans);
+  /* Direct family names (not only the CSS-variable indirection):
+     "Anek Bangla" is the @font-face family name emitted by
+     next/font/google, so this applies even if a variable class is
+     ever dropped. The variable stack in --font-sans stays in sync. */
+  font-family: "Anek Bangla", "Hind Siliguri", "Noto Sans Bengali",
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Smooth theme switching (dark/light toggle). */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ---- Motion: light, professional, CSS-only ---- */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.45s ease both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* Dark theme — applied when <html> has the .dark class. */
@@ -51,11 +97,13 @@ textarea {
   font-family: inherit;
 }
 
-/* Headings use the display font (Anek Bangla). */
+/* Headings use the display font (Anek Bangla) — direct family names
+   again, so the headings never fall back to a system font. */
 h1,
 h2,
 h3 {
-  font-family: var(--font-display);
+  font-family: "Anek Bangla", "Hind Siliguri", "Noto Sans Bengali",
+    ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ---- Print: only the result card prints ---- */

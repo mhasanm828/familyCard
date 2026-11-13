@@ -43,7 +43,7 @@ export default function HomePage() {
   return (
     <div className="space-y-10 pt-6">
       {/* Hero */}
-      <section className="overflow-hidden rounded-3xl bg-brand-800 text-white shadow-lg dark:bg-brand-900 dark:ring-1 dark:ring-emerald-800">
+      <section className="animate-fade-up overflow-hidden rounded-3xl bg-brand-800 text-white shadow-lg dark:bg-brand-900 dark:ring-1 dark:ring-emerald-800">
         <div className="px-6 py-10 sm:px-10 sm:py-14">
           <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold ring-1 ring-white/20">
             <Landmark className="h-3.5 w-3.5" />

@@ -40,7 +40,7 @@ export default async function SavedDetailPage({
         <ArrowLeft className="h-4 w-4" />
         সেভ করা তালিকায় ফিরুন
       </Link>
-      <ResultView data={data} />
+      <ResultView data={data} initialSaved />
     </div>
   );
 }
