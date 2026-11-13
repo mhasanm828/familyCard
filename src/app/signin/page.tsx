@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, LogIn } from "lucide-react";
-import { signIn } from "@/lib/auth-client";
+import { signIn, authErrorMessage } from "@/lib/auth-client";
 import SocialLoginButtons from "@/components/SocialLoginButtons";
 
 export default function SignInPage() {
@@ -25,17 +25,19 @@ export default function SignInPage() {
         callbackURL: "/search",
       });
       if (error) {
-        setError("ইমেইল বা পাসওয়ার্ড ভুল। আবার চেষ্টা করুন।");
+        setError(
+          authErrorMessage(error, "ইমেইল বা পাসওয়ার্ড ভুল। আবার চেষ্টা করুন।"),
+        );
         return;
       }
       router.push("/search");
       router.refresh();
     } catch {
-      // Network failure (e.g. the dev server is not running) used to
-      // reject the promise uncaught — "Uncaught TypeError: Failed to
-      // fetch" in the console and a stuck spinner. Show it plainly.
+      // Network failure (e.g. the server is down or unreachable) used
+      // to reject the promise uncaught — "Uncaught TypeError: Failed
+      // to fetch" in the console and a stuck spinner. Show it plainly.
       setError(
-        "সার্ভারের সাথে সংযোগ হয়নি — লোকাল সার্ভার (npm run dev) চালু আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।",
+        "সার্ভারের সাথে সংযোগ হয়নি — ইন্টারনেট সংযোগ আর সাইটটি চালু আছে কি না দেখে আবার চেষ্টা করুন।",
       );
     } finally {
       setLoading(false);

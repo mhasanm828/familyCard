@@ -1,21 +1,24 @@
 import type { Metadata } from "next";
-import { Hind_Siliguri, Noto_Serif_Bengali } from "next/font/google";
+import { Anek_Bangla, Hind_Siliguri } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 
-// Body font — clean, highly readable Bangla + Latin.
-const hindSiliguri = Hind_Siliguri({
+// Primary font — Anek Bangla for headings AND body.
+// Hind Siliguri stays loaded as the fallback: some ASCII symbols
+// ( ' • " " – — , + ) render as tofu boxes in Anek Bangla, so the
+// font stack falls back to Hind Siliguri per-glyph for those.
+const anekBangla = Anek_Bangla({
   subsets: ["bengali", "latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-body",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-anek",
   display: "swap",
 });
 
-// Display font for headings — a refined serif for a formal, official feel.
-const notoSerifBengali = Noto_Serif_Bengali({
+// Fallback font — only used for glyphs Anek Bangla lacks.
+const hindSiliguri = Hind_Siliguri({
   subsets: ["bengali", "latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-heading",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-fallback",
   display: "swap",
 });
 
@@ -38,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>
       <body
-        className={`${hindSiliguri.variable} ${notoSerifBengali.variable} min-h-screen bg-[#f4f6f4] font-sans text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100`}
+        className={`${anekBangla.variable} ${hindSiliguri.variable} min-h-screen bg-[#f4f6f4] font-sans text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100`}
       >
         <Header />
         <main className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">

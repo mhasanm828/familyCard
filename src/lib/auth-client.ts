@@ -21,3 +21,42 @@ export const authClient = createAuthClient({
 });
 
 export const { signIn, signUp, signOut, useSession } = authClient;
+
+type AuthClientError = {
+  status?: number;
+  message?: string;
+  code?: string;
+};
+
+/**
+ * Turn a Better Auth client error into a Bangla message the user can
+ * act on. The old code swallowed every non-"already" failure into one
+ * generic line, so a 403 origin mismatch looked identical to a wrong
+ * password. Known failures get a specific message; anything else
+ * surfaces the server's own (short) message instead of hiding it.
+ */
+export function authErrorMessage(error: unknown, fallback: string): string {
+  const e = (error ?? {}) as AuthClientError;
+  const msg = (e.message ?? "").toLowerCase();
+  if (
+    e.status === 403 ||
+    msg.includes("origin") ||
+    msg.includes("forbidden")
+  ) {
+    return "সাইটের ঠিকানা মিলছে না (403) — Vercel-এ BETTER_AUTH_URL সাইটের আসল ঠিকানার সাথে হুবহু মিলিয়ে বসান (ছোট হাতের অক্ষরে, শেষে / ছাড়া), তারপর Redeploy দিন।";
+  }
+  if (
+    msg.includes("already") ||
+    (e.code ?? "").includes("USER_ALREADY_EXISTS")
+  ) {
+    return "এই ইমেইল দিয়ে অ্যাকাউন্ট আগেই খোলা হয়েছে — লগইন করুন।";
+  }
+  if (msg.includes("password")) {
+    return "পাসওয়ার্ড সঠিক নয় — কমপক্ষে ৮ অক্ষরের হতে হবে।";
+  }
+  if (msg.includes("invalid email") || msg.includes("invalidemail")) {
+    return "ইমেইল ঠিকানাটি সঠিক নয়।";
+  }
+  if (e.message && e.message.length < 120) return e.message;
+  return fallback;
+}

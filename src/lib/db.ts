@@ -40,6 +40,28 @@ export function getDb(): Db {
   return getClient().db(DB_NAME);
 }
 
+/**
+ * Lazily-resolved Db for the Better Auth adapter. The adapter only
+ * calls `db.collection(...)` inside its operation methods, never at
+ * construction — so a Proxy that resolves getDb() on first property
+ * access lets `next build` (page-data collection imports auth.ts)
+ * succeed even when DATABASE_URL is unset, while the first real
+ * query still throws the clear Bangla error above. Without this,
+ * importing auth.ts at build time crashed the build whenever the
+ * variable was missing.
+ */
+export function getLazyDb(): Db {
+  return new Proxy({} as Db, {
+    get(_target, prop) {
+      const db = getDb();
+      const value = (db as unknown as Record<string | symbol, unknown>)[prop];
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(db)
+        : value;
+    },
+  });
+}
+
 export const COLLECTIONS = {
   users: "users",
   sessions: "sessions",

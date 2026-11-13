@@ -4,10 +4,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: var(--font-body), "Hind Siliguri", "Noto Sans Bengali",
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: var(--font-heading), "Noto Serif Bengali",
-    "Hind Siliguri", Georgia, serif;
+  /* Anek Bangla first everywhere; Hind Siliguri is the per-glyph
+     fallback for symbols Anek Bangla lacks (e.g. ' • " " – — , +). */
+  --font-sans: var(--font-anek), var(--font-fallback), "Hind Siliguri",
+    "Noto Sans Bengali", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-display: var(--font-anek), var(--font-fallback),
+    "Hind Siliguri", "Noto Sans Bengali", ui-sans-serif, system-ui,
+    sans-serif;
   --color-brand-50: #ecfdf5;
   --color-brand-100: #d1fae5;
   --color-brand-200: #a7f3d0;
@@ -47,7 +51,7 @@ textarea {
   font-family: inherit;
 }
 
-/* Headings use the serif display font. */
+/* Headings use the display font (Anek Bangla). */
 h1,
 h2,
 h3 {

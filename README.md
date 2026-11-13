@@ -31,6 +31,8 @@ Next.js (App Router, TypeScript) + **Better Auth** অ্যাপ — সরক
   শুধু রেজাল্ট কার্ডই ছাপা হয়)।
 - **ডার্ক / লাইট মোড** — হেডারের টগল থেকে বদলানো যায়, পছন্দ ব্রাউজারে
   সেভ থাকে। ডিফল্ট লাইট।
+- **ফন্ট — Anek Bangla** — হেডিং ও বডি দুটোতেই Anek Bangla; Anek-এ
+  নেই এমন চিহ্নগুলো (`' • " " – — , +`) Hind Siliguri দিয়ে দেখায়।
 
 ## ডেটাবেস — MongoDB Atlas (ফ্রি)
 
@@ -154,13 +156,33 @@ Secret কখনো কোডে বা README-তে বসাবেন না 
    - `BETTER_AUTH_SECRET` — লম্বা র‍্যান্ডম সিক্রেট (ডেভেরটা নয়, নতুন
      করে বানান: `openssl rand -base64 32`)
    - `BETTER_AUTH_URL` — `https://<আপনার-ডোমেইন>` (যেমন
-     `https://family-card-search.vercel.app`)
+     `https://familycard.vercel.app`)
    - `NEXT_PUBLIC_APP_URL` — উপরের একই URL
    - `DATABASE_URL` — Atlas MongoDB কানেকশন স্ট্রিং (উপরে দেখুন)।
    - সোশ্যাল লগইন চালু করতে চাইলে: `GOOGLE_CLIENT_ID`,
      `GOOGLE_CLIENT_SECRET`, `FACEBOOK_CLIENT_ID`,
      `FACEBOOK_CLIENT_SECRET` (উপরে দেখুন)।
 4. Deploy করুন। নতুন পুশ হলেই Vercel নিজে নিজে আবার ডিপ্লয় করবে।
+
+> ⚠️ **`BETTER_AUTH_URL` হুবহু মিলতে হবে।** Vercel প্রজেক্টের নাম
+> ছোট হাতের অক্ষরে হয় — তাই আসল URL সবসময় ছোট হাতের, যেমন
+> `https://familycard.vercel.app` (বড় হাতের `familyCard` নয়)।
+> Vercel Dashboard → Project → **Domains** (বা Deployment-এর
+> **Visit** বাটনে ক্লিক করে অ্যাড্রেস বারে যা দেখায়) — সেটাই
+> `BETTER_AUTH_URL` আর `NEXT_PUBLIC_APP_URL` — শেষে `/` ছাড়া।
+> ভুল/বড় হাতের URL দিলে রেজিস্ট্রেশন/লগইন **403** দিয়ে ব্যর্থ হয়।
+> অ্যাপে `https://*.vercel.app` আগেই trusted হিসেবে আছে, তাই
+> সঠিক URL দিলে আর 403 আসবে না।
+
+## সমস্যা সমাধান (403)
+
+- **"অ্যাকাউন্ট খুলতে ব্যর্থ হয়েছে" + কনসোলে 403** — প্রায় সবসময়
+  `BETTER_AUTH_URL` ভুল। উপরের ধাপ অনুযায়ী আসল ডেপ্লয়মেন্ট URL
+  (ছোট হাতের, `/` ছাড়া) দুইটা env var-এ বসিয়ে **Redeploy** দিন
+  (Vercel → Deployments → ⋯ → Redeploy) — শুধু env বদলালে চলবে না,
+  আবার ডিপ্লয় লাগে।
+- **সার্ভার এরর দেখালে ফর্ম এখন আসল কারণ বাংলায় দেখায়** (যেমন
+  ঠিকানা না মিললে 403-এর কথা লেখা থাকে)।
 
 ## সার্চের নিয়ম (যাচাই করা, নভেম্বর ২০২৬)
 

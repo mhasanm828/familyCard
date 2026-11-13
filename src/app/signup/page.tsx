@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, UserPlus } from "lucide-react";
-import { signUp } from "@/lib/auth-client";
+import { signUp, authErrorMessage } from "@/lib/auth-client";
 import SocialLoginButtons from "@/components/SocialLoginButtons";
 
 export default function SignUpPage() {
@@ -32,20 +32,18 @@ export default function SignUpPage() {
       });
       if (error) {
         setError(
-          error.message?.includes("already")
-            ? "এই ইমেইল দিয়ে অ্যাকাউন্ট আগেই খোলা হয়েছে — লগইন করুন।"
-            : "অ্যাকাউন্ট খুলতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।",
+          authErrorMessage(error, "অ্যাকাউন্ট খুলতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।"),
         );
         return;
       }
       router.push("/search");
       router.refresh();
     } catch {
-      // Network failure (e.g. the dev server is not running) used to
-      // reject the promise uncaught — "Uncaught TypeError: Failed to
-      // fetch" in the console and a stuck spinner. Show it plainly.
+      // Network failure (e.g. the server is down or unreachable) used
+      // to reject the promise uncaught — "Uncaught TypeError: Failed
+      // to fetch" in the console and a stuck spinner. Show it plainly.
       setError(
-        "সার্ভারের সাথে সংযোগ হয়নি — লোকাল সার্ভার (npm run dev) চালু আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।",
+        "সার্ভারের সাথে সংযোগ হয়নি — ইন্টারনেট সংযোগ আর সাইটটি চালু আছে কি না দেখে আবার চেষ্টা করুন।",
       );
     } finally {
       setLoading(false);
