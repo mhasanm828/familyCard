@@ -73,6 +73,25 @@ export const COLLECTIONS = {
 
 export { ObjectId };
 
+/** A user as stored in MongoDB (Better Auth + this app's own fields).
+ *  role/approved are set by the signup hook in lib/auth.ts; accounts
+ *  created BEFORE the approval system exist without them, so both are
+ *  optional here and resolveAccess() treats a missing value as
+ *  role "user" / approved false — except the ADMIN_EMAIL account,
+ *  which is always admin. */
+export interface UserDoc {
+  _id?: ObjectId;
+  id?: string;
+  name?: string;
+  email: string;
+  emailVerified?: boolean;
+  image?: string | null;
+  role?: string;
+  approved?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 /** A saved application as stored in MongoDB (sanitized — no NID/mobile). */
 export interface SavedApplicationDoc {
   _id?: ObjectId;

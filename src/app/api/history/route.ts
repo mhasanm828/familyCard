@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireApprovedApi } from "@/lib/access";
 import { COLLECTIONS, getDb, ObjectId, toPlain } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +13,9 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/history — last 20 searches. */
 export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "লগইন করা প্রয়োজন।" }, { status: 401 });
-  }
+  const gate = await requireApprovedApi();
+  if (gate instanceof NextResponse) return gate;
+  const session = gate.session;
   const rows = await getDb()
     .collection(COLLECTIONS.searchHistory)
     .find({ userId: session.user.id })
@@ -32,10 +30,9 @@ export async function GET() {
  * DELETE /api/history?all=1 — clear the whole history.
  */
 export async function DELETE(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "লগইন করা প্রয়োজন।" }, { status: 401 });
-  }
+  const gate = await requireApprovedApi();
+  if (gate instanceof NextResponse) return gate;
+  const session = gate.session;
   const all = req.nextUrl.searchParams.get("all") === "1";
   if (all) {
     await getDb()

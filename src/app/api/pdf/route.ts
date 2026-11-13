@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireApprovedApi } from "@/lib/access";
 import { GOV_API_BASE } from "@/lib/familycard";
 
 export const dynamic = "force-dynamic";
@@ -13,10 +12,8 @@ export const dynamic = "force-dynamic";
  * the same official PDF.
  */
 export async function GET(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "লগইন করা প্রয়োজন।" }, { status: 401 });
-  }
+  const gate = await requireApprovedApi();
+  if (gate instanceof NextResponse) return gate;
 
   const applicationId = req.nextUrl.searchParams.get("application_id") ?? "";
   const lang = req.nextUrl.searchParams.get("lang") ?? "bn";

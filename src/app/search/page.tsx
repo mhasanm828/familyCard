@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/session";
+import { requireApproved } from "@/lib/access";
 import SearchForm from "@/components/SearchForm";
 
 export const metadata = {
@@ -6,7 +6,7 @@ export const metadata = {
 };
 
 export default async function SearchPage() {
-  await requireSession();
+  await requireApproved();
   return (
     <div className="space-y-5 pt-6">
       <div>

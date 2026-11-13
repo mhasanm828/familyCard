@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Bookmark, Calendar, History, Mail, Search, User } from "lucide-react";
-import { requireSession } from "@/lib/session";
+import { requireApproved } from "@/lib/access";
 import { COLLECTIONS, getDb } from "@/lib/db";
 import SignOutButton from "@/components/SignOutButton";
 
@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function AccountPage() {
-  const session = await requireSession();
+  const { session } = await requireApproved();
   const db = getDb();
   const [savedCount, paymentBlankCount, historyCount] = await Promise.all([
     db

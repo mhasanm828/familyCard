@@ -1,7 +1,9 @@
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { Anek_Bangla, Hind_Siliguri } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
+import { auth } from "@/lib/auth";
 
 // Primary font — Anek Bangla for headings AND body.
 // Hind Siliguri stays loaded as the fallback: some ASCII symbols
@@ -34,7 +36,31 @@ export const metadata: Metadata = {
 // suppressHydrationWarning for that class-attribute difference.
 const THEME_BOOTSTRAP = `(function(){try{var t=localStorage.getItem("fc-theme");if(t==="dark"){document.documentElement.classList.add("dark")}}catch(e){}})();`;
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Server session for the header: without it the client header would
+  // SSR the logged-OUT nav (Profile replaced by "অ্যাকাউন্ট খুলুন") on
+  // every first paint and only flip after hydration. The prop is just
+  // the first paint — the client session takes over once loaded, and
+  // access is enforced server-side anyway (see lib/access.ts).
+  const serverSession = await auth.api
+    .getSession({ headers: await headers() })
+    .catch(() => null);
+  const initialSession = serverSession
+    ? {
+        user: {
+          id: serverSession.user.id,
+          name: serverSession.user.name,
+          email: serverSession.user.email,
+          role: (
+            serverSession.user as { role?: string }
+          ).role,
+          approved: (
+            serverSession.user as { approved?: boolean }
+          ).approved,
+        },
+      }
+    : null;
+
   return (
     <html
       lang="bn"
@@ -47,7 +73,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body
         className={`${anekBangla.variable} ${hindSiliguri.variable} min-h-screen bg-[#f4f6f4] font-sans text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100`}
       >
-        <Header />
+        <Header initialSession={initialSession} />
         <main className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
           {children}
         </main>

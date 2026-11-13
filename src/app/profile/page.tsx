@@ -10,7 +10,7 @@ import {
   User,
   XCircle,
 } from "lucide-react";
-import { requireSession } from "@/lib/session";
+import { requireApproved } from "@/lib/access";
 import { COLLECTIONS, getDb, toPlain } from "@/lib/db";
 
 export const metadata = {
@@ -48,7 +48,7 @@ function StatCard({
 }
 
 export default async function ProfilePage() {
-  const session = await requireSession();
+  const { session } = await requireApproved();
   const userId = session.user.id;
   const db = getDb();
 

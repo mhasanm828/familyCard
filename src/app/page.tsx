@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -7,7 +8,13 @@ import {
   Landmark,
   Search,
   ShieldCheck,
+  ShieldAlert,
+  User,
+  UserPlus,
 } from "lucide-react";
+import { auth } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 const FEATURES = [
   {
@@ -39,9 +46,26 @@ const STEPS = [
   { n: "৪", title: "তথ্য দেখুন ও PDF নিন", text: "পুরো বিবরণ, ছবি, PMT স্কোর দেখুন আর অফিসিয়াল PDF ডাউনলোড করুন।" },
 ];
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ msg?: string }>;
+}) {
+  // Hero CTA follows the login state (real server session, never
+  // localStorage): logged in → Profile; logged out → "অ্যাকাউন্ট খুলুন".
+  const params = searchParams ? await searchParams : {};
+  const session = await auth.api.getSession({ headers: await headers() });
+  const loggedIn = !!session;
+
   return (
     <div className="space-y-10 pt-6">
+      {params.msg === "admin-only" && (
+        <p className="flex items-center gap-2 rounded-2xl bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800 ring-1 ring-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:ring-amber-900">
+          <ShieldAlert className="h-5 w-5 shrink-0" />
+          এই পেজটি শুধু অ্যাডমিনের জন্য — আপনার অ্যাকাউন্টে অ্যাডমিন
+          অ্যাক্সেস নেই।
+        </p>
+      )}
       {/* Hero */}
       <section className="animate-fade-up overflow-hidden rounded-3xl bg-brand-800 text-white shadow-lg dark:bg-brand-900 dark:ring-1 dark:ring-emerald-800">
         <div className="px-6 py-10 sm:px-10 sm:py-14">
@@ -66,12 +90,23 @@ export default function HomePage() {
               <Search className="h-5 w-5" />
               এখনই সার্চ করুন
             </Link>
-            <Link
-              href="/signup"
-              className="rounded-xl bg-white/10 px-6 py-3 font-bold text-white ring-1 ring-white/30 hover:bg-white/20"
-            >
-              অ্যাকাউন্ট খুলুন
-            </Link>
+            {loggedIn ? (
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 font-bold text-white ring-1 ring-white/30 hover:bg-white/20"
+              >
+                <User className="h-5 w-5" />
+                আমার প্রোফাইল
+              </Link>
+            ) : (
+              <Link
+                href="/signup"
+                className="flex items-center gap-2 rounded-xl bg-white/10 px-6 py-3 font-bold text-white ring-1 ring-white/30 hover:bg-white/20"
+              >
+                <UserPlus className="h-5 w-5" />
+                অ্যাকাউন্ট খুলুন
+              </Link>
+            )}
           </div>
           <p className="mt-4 flex items-center gap-2 text-xs text-emerald-200">
             <ShieldCheck className="h-4 w-4" />
@@ -123,6 +158,7 @@ export default function HomePage() {
         </h2>
         <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-amber-900/90 dark:text-amber-100/80">
           <li>এটি সরকারি ওয়েবসাইট নয় — তথ্য সরকারি সিস্টেম থেকে লাইভ আনা হয়।</li>
+          <li>নতুন অ্যাকাউন্ট খুললেই সার্চ করা যায় না — অ্যাডমিন অনুমোদন দিলেই অ্যাক্সেস খুলে যায়।</li>
           <li>প্রতিটা সার্চে নতুন ক্যাপচা (অঙ্ক) সমাধান করতে হয়, তাই একসাথে অনেক আবেদন অটো-সার্চ করা যায় না।</li>
           <li>ট্র্যাকিং নম্বরই আবেদন আইডি (১০ ডিজিট)। ভেতরের ৭ ডিজিটের আইডি দিয়ে শুধু অফিসিয়াল PDF নামে, ট্র্যাকিং সার্চ হয় না।</li>
           <li>খোঁজা প্রতিটা আবেদন আপনার অ্যাকাউন্টে সেভ থাকে — সার্চের ইতিহাস থেকেও আবার এক ক্লিকে খোঁজা যায়।</li>

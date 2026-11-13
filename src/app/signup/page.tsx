@@ -58,7 +58,8 @@ export default function SignUpPage() {
           অ্যাকাউন্ট খুলুন
         </h1>
         <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-          ইমেইল + পাসওয়ার্ড দিয়ে অ্যাকাউন্ট খুললেই সার্চ করতে পারবেন।
+          ইমেইল + পাসওয়ার্ড দিয়ে অ্যাকাউন্ট খুলুন — অ্যাডমিন অনুমোদন
+          দিলেই সার্চ করতে পারবেন।
         </p>
         <div className="mt-6">
           <SocialLoginButtons />

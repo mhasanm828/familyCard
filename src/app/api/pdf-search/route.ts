@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireApprovedApi } from "@/lib/access";
 import { COLLECTIONS, getDb, type SearchResultStatus } from "@/lib/db";
 import {
   checkPdfAvailable,
@@ -36,13 +35,9 @@ const ID_RE = /^(\d{7}|\d{10})$/;
  * stored — it is a public application id, not an NID/mobile.
  */
 export async function POST(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json(
-      { error: "লগইন করা প্রয়োজন।" },
-      { status: 401 },
-    );
-  }
+  const gate = await requireApprovedApi();
+  if (gate instanceof NextResponse) return gate;
+  const session = gate.session;
   const userId = session.user.id;
 
   let body: {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { requireSession } from "@/lib/session";
+import { requireApproved } from "@/lib/access";
 import { COLLECTIONS, getDb, ObjectId } from "@/lib/db";
 import ResultView from "@/components/ResultView";
 import type { ApplicantData } from "@/lib/familycard";
@@ -15,7 +15,7 @@ export default async function SavedDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireSession();
+  const { session } = await requireApproved();
   const { id } = await params;
 
   if (!ObjectId.isValid(id)) notFound();

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { requireApprovedApi } from "@/lib/access";
 import { COLLECTIONS, getDb, ObjectId, regexEscape, toPlain } from "@/lib/db";
 import { saveApplicationRecord } from "@/lib/save-application";
 
@@ -8,10 +7,9 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/saved — the logged-in user's saved applications (newest first). */
 export async function GET(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "লগইন করা প্রয়োজন।" }, { status: 401 });
-  }
+  const gate = await requireApprovedApi();
+  if (gate instanceof NextResponse) return gate;
+  const session = gate.session;
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
   const query: Record<string, unknown> = { userId: session.user.id };
   if (q) {
@@ -36,10 +34,9 @@ export async function GET(req: NextRequest) {
  *  re-sanitized server-side and upserted, so tapping Save twice is
  *  safe — the second tap just updates the same row. */
 export async function POST(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "লগইন করা প্রয়োজন।" }, { status: 401 });
-  }
+  const gate = await requireApprovedApi();
+  if (gate instanceof NextResponse) return gate;
+  const session = gate.session;
   let body: {
     applicationId?: string;
     data?: Record<string, unknown>;
@@ -72,10 +69,9 @@ export async function POST(req: NextRequest) {
 
 /** DELETE /api/saved?id=<saved id> — delete one of the user's own rows. */
 export async function DELETE(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "লগইন করা প্রয়োজন।" }, { status: 401 });
-  }
+  const gate = await requireApprovedApi();
+  if (gate instanceof NextResponse) return gate;
+  const session = gate.session;
   const id = req.nextUrl.searchParams.get("id") ?? "";
   if (!id || !ObjectId.isValid(id)) {
     return NextResponse.json({ error: "আইডি দিন।" }, { status: 400 });

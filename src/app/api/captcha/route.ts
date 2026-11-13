@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireApprovedApi } from "@/lib/access";
 import { fetchCaptcha } from "@/lib/familycard";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
  * and returns the token + base64 image for the search form.
  */
 export async function GET() {
+  const gate = await requireApprovedApi();
+  if (gate instanceof NextResponse) return gate;
   try {
     const captcha = await fetchCaptcha();
     return NextResponse.json({

@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
-import { getClient, getLazyDb } from "./db";
+import { COLLECTIONS, getClient, getDb, getLazyDb } from "./db";
+import { isAdminEmail } from "./admin-email";
 
 /**
  * Better Auth instance — native MongoDB driver (no ORM).
@@ -11,6 +12,12 @@ import { getClient, getLazyDb } from "./db";
  * - Auth collections: users, sessions, accounts, verifications
  *   (usePlural). BETTER_AUTH_SECRET and BETTER_AUTH_URL come from the
  *   environment; never commit a real secret.
+ * - Approval gate (see lib/access.ts): every user document carries
+ *   `role` ("admin" | "user") and `approved` (boolean). New accounts
+ *   start unapproved and cannot search until an admin approves them.
+ *   The ADMIN_EMAIL account is auto-admin; on a brand-new database
+ *   the very first account is also made admin so the owner is never
+ *   locked out of their own empty app.
  */
 
 const googleEnabled = Boolean(
@@ -79,6 +86,49 @@ export const auth = betterAuth({
     client: getClient(),
     usePlural: true,
   }),
+  user: {
+    // Stored on the user document. `input: false` so a client can
+    // never set these for itself at signup; `defaultValue` covers
+    // any path that skips the hook below.
+    additionalFields: {
+      role: { type: "string", defaultValue: "user", input: false },
+      approved: { type: "boolean", defaultValue: false, input: false },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // Runs for email AND social signups, before the user document
+        // is written. The computed role/approved are spread AFTER the
+        // user object so a crafted request can never override them.
+        before: async (user) => {
+          const email = (user.email ?? "").trim().toLowerCase();
+          const isOwner = isAdminEmail(email);
+          let isFirstEverUser = false;
+          if (!isOwner) {
+            try {
+              // First account on a brand-new database becomes admin —
+              // only when the users collection is completely empty.
+              const total = await getDb()
+                .collection(COLLECTIONS.users)
+                .countDocuments({});
+              isFirstEverUser = total === 0;
+            } catch {
+              isFirstEverUser = false;
+            }
+          }
+          const admin = isOwner || isFirstEverUser;
+          return {
+            data: {
+              ...user,
+              role: admin ? "admin" : "user",
+              approved: admin,
+            },
+          };
+        },
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
