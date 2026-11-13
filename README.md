@@ -69,13 +69,49 @@ replica set, তাই সেখানে কিছু করতে হয় �
 
 ```bash
 npm install
-cp .env.example .env
-# .env-এ BETTER_AUTH_SECRET-এ লম্বা র‍্যান্ডম সিক্রেট দিন, যেমন:
-# openssl rand -base64 32
-# .env-এ DATABASE_URL-এ Atlas কানেকশন স্ট্রিং দিন (উপরে দেখুন)
+cp .env.example .env.local
+```
+
+`.env.local`-এ এগুলো থাকতে হবে (লোকাল ডেভের মান — Vercel-এর মান আলাদা,
+নিচে দেখুন):
+
+```env
+DATABASE_URL="mongodb://127.0.0.1:27017/familycard?replicaSet=rs0"
+BETTER_AUTH_SECRET="<openssl rand -base64 32 দিয়ে বানানো লম্বা সিক্রেট>"
+BETTER_AUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+জরুরি: লোকালে চালালে `BETTER_AUTH_URL` আর `NEXT_PUBLIC_APP_URL` —
+দুটোই `http://localhost:3000` হতে হবে। ডেপ্লয় করা URL (যেমন
+`https://....vercel.app`) বসালে লোকাল অথ কল `localhost`-এ যাবে না,
+আর ব্রাউজার `ERR_CONNECTION_REFUSED` দেখাবে। Atlas-এর স্ট্রিং
+(`mongodb+srv://...`) লোকালেও চলবে — তখন লোকাল `mongod` লাগবে না।
+
+লোকাল `mongod` (replica set — Better Auth ট্রানজাকশন ব্যবহার করে,
+আর MongoDB-তে ট্রানজাকশন চলে শুধু replica set-এ):
+
+```bash
+mkdir -p /tmp/mongo-data
+mongod --replSet rs0 --dbpath /tmp/mongo-data --bind_ip 127.0.0.1 --port 27017 --fork --logpath /tmp/mongod.log
+# প্রথমবার একবার: mongosh-এ rs.initiate() — না থাকলে node দিয়ে:
+node -e "require('mongodb').MongoClient.connect('mongodb://127.0.0.1:27017/?replicaSet=rs0').then(c=>c.db('admin').command({replSetInitiate:{}})).then(()=>console.log('initiated')).catch(e=>console.log(e.message))"
+```
+
+তারপর অ্যাপ চালান:
+
+```bash
 npm run dev
 # http://localhost:3000
 ```
+
+⚠️ **ডেভ সার্ভার চালু না থাকলে রেজিস্ট্রেশন হবে না**: ব্রাউজার
+কনসোলে `GET http://localhost:3000/api/auth/get-session
+net::ERR_CONNECTION_REFUSED` আর `POST .../sign-up/email
+net::ERR_CONNECTION_REFUSED` মানে সার্ভারই চলছে না — কোডের বাগ নয়।
+`npm run dev` চালিয়ে টার্মিনালে `Ready` দেখে নিন, তারপর ফর্ম
+সাবমিট করুন। সার্ভার বন্ধ থাকলে এখন ফর্মে পরিষ্কার বাংলা মেসেজ
+দেখাবে ("সার্ভারের সাথে সংযোগ হয়নি..."), কনসোলে আনকট এরর নয়।
 
 ## সোশ্যাল লগইন (Google / Facebook) — আপনার করতে হবে
 

@@ -26,6 +26,9 @@ export const metadata: Metadata = {
 };
 
 // Runs before first paint so the saved theme applies without a flash.
+// It only toggles the `dark` class on <html> — it never writes text
+// content, so it cannot cause a hydration mismatch. <html> also carries
+// suppressHydrationWarning for that class-attribute difference.
 const THEME_BOOTSTRAP = `(function(){try{var t=localStorage.getItem("fc-theme");if(t==="dark"){document.documentElement.classList.add("dark")}}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

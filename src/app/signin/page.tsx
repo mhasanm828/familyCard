@@ -18,18 +18,28 @@ export default function SignInPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await signIn.email({
-      email,
-      password,
-      callbackURL: "/search",
-    });
-    setLoading(false);
-    if (error) {
-      setError("ইমেইল বা পাসওয়ার্ড ভুল। আবার চেষ্টা করুন।");
-      return;
+    try {
+      const { error } = await signIn.email({
+        email,
+        password,
+        callbackURL: "/search",
+      });
+      if (error) {
+        setError("ইমেইল বা পাসওয়ার্ড ভুল। আবার চেষ্টা করুন।");
+        return;
+      }
+      router.push("/search");
+      router.refresh();
+    } catch {
+      // Network failure (e.g. the dev server is not running) used to
+      // reject the promise uncaught — "Uncaught TypeError: Failed to
+      // fetch" in the console and a stuck spinner. Show it plainly.
+      setError(
+        "সার্ভারের সাথে সংযোগ হয়নি — লোকাল সার্ভার (npm run dev) চালু আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।",
+      );
+    } finally {
+      setLoading(false);
     }
-    router.push("/search");
-    router.refresh();
   }
 
   return (

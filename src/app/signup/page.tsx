@@ -23,23 +23,33 @@ export default function SignUpPage() {
       return;
     }
     setLoading(true);
-    const { error } = await signUp.email({
-      email,
-      password,
-      name,
-      callbackURL: "/search",
-    });
-    setLoading(false);
-    if (error) {
+    try {
+      const { error } = await signUp.email({
+        email,
+        password,
+        name,
+        callbackURL: "/search",
+      });
+      if (error) {
+        setError(
+          error.message?.includes("already")
+            ? "এই ইমেইল দিয়ে অ্যাকাউন্ট আগেই খোলা হয়েছে — লগইন করুন।"
+            : "অ্যাকাউন্ট খুলতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।",
+        );
+        return;
+      }
+      router.push("/search");
+      router.refresh();
+    } catch {
+      // Network failure (e.g. the dev server is not running) used to
+      // reject the promise uncaught — "Uncaught TypeError: Failed to
+      // fetch" in the console and a stuck spinner. Show it plainly.
       setError(
-        error.message?.includes("already")
-          ? "এই ইমেইল দিয়ে অ্যাকাউন্ট আগেই খোলা হয়েছে — লগইন করুন।"
-          : "অ্যাকাউন্ট খুলতে ব্যর্থ হয়েছে। আবার চেষ্টা করুন।",
+        "সার্ভারের সাথে সংযোগ হয়নি — লোকাল সার্ভার (npm run dev) চালু আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।",
       );
-      return;
+    } finally {
+      setLoading(false);
     }
-    router.push("/search");
-    router.refresh();
   }
 
   return (
