@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Anek_Bangla, Hind_Siliguri } from "next/font/google";
 import "./globals.css";
@@ -85,6 +86,23 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <p className="mt-1">
               এই অ্যাপটি সরকারি সিস্টেম থেকে সরাসরি তথ্য দেখায়। NID /
               মোবাইল নম্বর কোথাও দেখানো বা সংরক্ষণ করা হয় না।
+            </p>
+            <p className="mt-3 flex items-center justify-center gap-3 font-medium">
+              <Link
+                href="/privacy"
+                className="text-brand-700 hover:underline dark:text-emerald-400"
+              >
+                গোপনীয়তা নীতি
+              </Link>
+              <span aria-hidden="true" className="text-stone-300 dark:text-stone-700">
+                •
+              </span>
+              <Link
+                href="/terms"
+                className="text-brand-700 hover:underline dark:text-emerald-400"
+              >
+                ব্যবহারের শর্তাবলি
+              </Link>
             </p>
           </div>
         </footer>
