@@ -275,3 +275,17 @@ export function proxiedImageUrl(path: string | null | undefined): string | null 
 export function officialPdfUrl(applicationId: string): string {
   return `/api/pdf?application_id=${encodeURIComponent(applicationId)}`;
 }
+
+/** Public (no-login) twins of the gated proxies above — used only by
+ *  the public /new-search flow, which accepts 10-digit application
+ *  ids only. */
+export function publicPdfUrl(applicationId: string): string {
+  return `/api/public-pdf?application_id=${encodeURIComponent(applicationId)}`;
+}
+
+export function publicProxiedImageUrl(
+  path: string | null | undefined,
+): string | null {
+  if (!path) return null;
+  return `/api/public-image?path=${encodeURIComponent(path)}`;
+}

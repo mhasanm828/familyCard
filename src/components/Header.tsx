@@ -34,6 +34,8 @@ function useNavItems(
 ): NavItem[] {
   const items: NavItem[] = [
     { href: "/", label: "হোম", icon: Landmark },
+    // Public search — works without login (application id only).
+    { href: "/new-search", label: "নতুন সার্চ", icon: Search },
     { href: "/search", label: "সার্চ", icon: Search },
     { href: "/saved", label: "সেভ করা", icon: Bookmark },
   ];

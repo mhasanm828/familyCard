@@ -22,6 +22,8 @@ import {
   isPaymentBlank,
   officialPdfUrl,
   proxiedImageUrl,
+  publicPdfUrl,
+  publicProxiedImageUrl,
   statusLabel,
   type ApplicantData,
 } from "@/lib/familycard";
@@ -101,12 +103,21 @@ export function buildSummary(data: ApplicantData): string {
 export default function ResultView({
   data,
   initialSaved = false,
+  /** Public (no-login) mode: PDF + photos go through the public
+   *  proxies, and the save button is hidden (nothing is saved). */
+  publicMode = false,
 }: {
   data: ApplicantData;
   /** True when this record is already in the user's saved list
    *  (auto-saved by the search, or opened from /saved). */
   initialSaved?: boolean;
+  publicMode?: boolean;
 }) {
+  const pdfHref = publicMode
+    ? publicPdfUrl(String(data.application_id))
+    : officialPdfUrl(String(data.application_id));
+  const imageUrl = (path: string | null | undefined) =>
+    publicMode ? publicProxiedImageUrl(path) : proxiedImageUrl(path);
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(initialSaved);
@@ -252,17 +263,17 @@ export default function ResultView({
         <div className="grid gap-4 sm:grid-cols-3">
           <PhotoCard
             title="আবেদনকারীর ছবি"
-            src={proxiedImageUrl(data.image)}
+            src={imageUrl(data.image)}
             alt="আবেদনকারীর ছবি"
           />
           <PhotoCard
             title="বাড়ির ছবি"
-            src={proxiedImageUrl(data.house_image)}
+            src={imageUrl(data.house_image)}
             alt="বাড়ির ছবি"
           />
           <PhotoCard
             title="স্বাক্ষর"
-            src={proxiedImageUrl(data.signature)}
+            src={imageUrl(data.signature)}
             alt="স্বাক্ষর"
           />
         </div>
@@ -324,16 +335,17 @@ export default function ResultView({
       <div className="no-print flex flex-wrap items-center gap-3">
         {data.application_id && (
           <a
-            href={officialPdfUrl(String(data.application_id))}
+            href={pdfHref}
             className="flex items-center gap-2 rounded-xl bg-brand-700 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-brand-800 active:scale-[0.98]"
           >
             <Download className="h-4 w-4" />
             অফিসিয়াল আবেদনপত্র PDF ডাউনলোড
           </a>
         )}
-        <button
-          onClick={saveNow}
-          disabled={saved || saving}
+        {!publicMode && (
+          <button
+            onClick={saveNow}
+            disabled={saved || saving}
           className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold shadow-sm ring-1 transition active:scale-[0.98] ${
             saved
               ? "bg-emerald-50 text-emerald-700 ring-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800"
@@ -356,7 +368,8 @@ export default function ResultView({
               সেভ করুন
             </>
           )}
-        </button>
+          </button>
+        )}
         <button
           onClick={copySummary}
           className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-stone-700 shadow-sm ring-1 ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-700 dark:hover:bg-stone-700"
